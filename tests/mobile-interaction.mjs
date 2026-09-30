@@ -283,7 +283,8 @@ function openFixture({cooking=false,extraPot=false,delivery=false,chef=false,alm
   assert.ok(G.createOrder(state,()=>.4).ok);assert.ok(G.createOrder(state,()=>.6).ok);
   if(delivery) G.tickDay(state,22.1,()=>.5);
   if(cooking||chef||emptyBowl) assert.ok(G.takeBowl(state).ok);
-  if(cooking) {assert.ok(G.startPot(state).ok);G.tickDay(state,almostBurnt?4.7:2.5,()=>.5);}
+  // With the chef hired, the fixture's pot is one the chef started: she only ever harvests her own pots.
+  if(cooking) {assert.ok(G.startPot(state,0,chef).ok);G.tickDay(state,almostBurnt?4.7:2.5,()=>.5);}
   assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}),'Fixture passes the production save validator');
   return state;
 }

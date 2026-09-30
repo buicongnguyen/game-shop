@@ -147,6 +147,13 @@ textarea{width:100%;min-height:96px;padding:12px;border:1.5px solid var(--line-s
 .stock-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
 .stock-toolbar .text-button{margin-left:auto}
 .stock-legend{display:flex;justify-content:space-between;padding-bottom:8px;border-bottom:1px solid var(--line);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted)}
+.forecast{margin:-4px 0 10px;padding:8px 11px;border-radius:10px;background:var(--tint-2);font-size:13px;color:var(--ink-2)}
+.forecast b{color:var(--coral-dark);font-size:14px}
+.stock-group{margin:14px 0 2px;font-family:var(--display);font-weight:400;font-size:17px}
+.stock-group::after{content:'';display:block;width:44px;height:3px;margin-top:3px;border-radius:2px;background:var(--coral);opacity:.7}
+.sale-chip{display:inline-block;padding:0 6px;border-radius:8px;background:var(--green);color:#fff;font-size:11px;font-weight:700;vertical-align:1px}
+.expiry-note{color:#b85a3e!important;font-weight:700}
+.dark .expiry-note{color:#ffae8f!important}
 .stock-row{display:grid;grid-template-columns:40px minmax(0,1fr) auto auto;align-items:center;gap:6px 10px;padding:10px 0;border-bottom:1px dashed var(--line)}
 .stock-row:last-of-type{border-bottom:0}
 .stock-row.locked{opacity:.62}
@@ -204,6 +211,27 @@ textarea{width:100%;min-height:96px;padding:12px;border:1.5px solid var(--line-s
 .review-body>p{margin:4px 0;font-size:13.5px;line-height:1.55;color:var(--ink-2);overflow-wrap:anywhere}
 .owner-reply{padding:8px 12px;border-left:3px solid #e5b497;border-radius:4px;background:#fff2e8}
 .dark .owner-reply{background:#533a37}
+.guest-reply{margin-top:4px;padding:6px 12px;border-left:3px solid var(--line-strong);border-radius:4px;background:var(--tint);font-size:13px}
+.review-histogram{display:grid;gap:4px;margin:2px 0 12px}
+.review-histogram>div{display:grid;grid-template-columns:30px minmax(0,1fr) 30px;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--muted)}
+.review-histogram i{height:8px;border-radius:4px;background:var(--tint-3);overflow:hidden}
+.review-histogram b{display:block;height:100%;border-radius:inherit;background:#e9b43f}
+.review-histogram small{text-align:right;font-variant-numeric:tabular-nums}
+.more-reviews{width:100%;margin-top:10px}
+.price-tag{display:inline-block;margin-left:2px;padding:0 6px;border-radius:8px;font-size:11px;font-weight:800;white-space:nowrap}
+.price-tag.severe{background:#ffe1d9;color:#b3261e}
+.price-tag.expensive{background:var(--warn-bg);color:var(--warn-ink)}
+.price-tag.cheap{background:var(--mint);color:var(--green-dark)}
+.tab-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:4px;padding:0 5px;border-radius:9px;background:var(--coral);color:#fff;font-size:11px;font-weight:800;line-height:1}
+.reply-quote{padding:8px 12px;border-radius:10px;background:var(--tint);font-size:13px}
+.reply-quote>p{margin:4px 0 0}
+.reply-suggestions{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.reply-suggestions .chip-button{max-width:100%;padding:6px 12px;border-radius:14px;font-weight:600;line-height:1.35;text-align:left;white-space:normal}
+.reply-suggestions .sassy{border-style:dashed}
+.order-line{display:-webkit-box;margin:0 0 5px;overflow:hidden;color:var(--ink-2);font-size:12.5px;font-style:italic;line-height:1.4;-webkit-line-clamp:1;-webkit-box-orient:vertical}
+.order-line b{font-style:normal;font-weight:700;color:#b24a2e}
+.dark .order-line b{color:#ffb39c}
+
 .review .text-button{padding-left:0}
 .empty-state{padding:28px 10px;text-align:center;color:var(--muted)}
 .empty-state>span{display:block;font-size:36px}
@@ -273,6 +301,9 @@ th:first-child,td:first-child{text-align:left}
 .ticket-main h2{display:flex;align-items:center;gap:6px;font-size:18px;line-height:1.2}
 .ticket-main h2.done::after,.order-toppings>.done::after{content:'✓';display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--green);color:#fff;font-family:var(--font);font-size:11px;font-weight:700;flex:none}
 .ticket-main p{font-size:12.5px;color:var(--muted)}
+.tea-button{display:inline-flex;align-items:center;gap:4px;flex:none;min-height:40px;padding:4px 11px;border:1px solid #b9d4a6;border-radius:20px;background:#eaf6df;color:#3f6b35;font-size:12.5px;font-weight:700;white-space:nowrap;animation:pulse .9s ease-in-out infinite alternate}
+.tea-button small{font-size:11px;font-weight:600;opacity:.8}
+.dark .tea-button{background:#34483a;border-color:#5c7a57;color:#cfe8c0}
 .spice-stamp{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none;width:46px;height:46px;border:1.5px dashed #eab79e;border-radius:10px;background:#fff0e5;color:#ae392d;font-size:9px;font-weight:700;letter-spacing:1px;line-height:1.1;transform:rotate(5deg)}
 .spice-stamp strong{font-family:var(--display);font-weight:400;font-size:21px;letter-spacing:0;line-height:1.05}
 .spice-stamp.done{border-style:solid;border-color:var(--green);background:var(--mint);color:var(--green-dark)}
@@ -309,6 +340,7 @@ th:first-child,td:first-child{text-align:left}
 .pot-button small{font-size:11.5px;line-height:1.2;color:#86654f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dark .pot-button small{color:#e1bfa6}
 .pot-button .cook-gauge{grid-column:1/-1;margin-top:6px}
+.pot-button.slow::after{content:'🔥 lửa yếu';position:absolute;top:-8px;right:6px;padding:1px 6px;border-radius:8px;background:#fff3d6;color:#9a5a20;font-size:10.5px;font-weight:800;box-shadow:0 1px 0 #0002;pointer-events:none}
 .pot-button.stage-ideal{border-color:#8dbb74;box-shadow:0 0 0 2px #8dbb7455}
 .pot-button.stage-soft{border-color:#e39a62}
 .pot-button.stage-danger{border-color:var(--coral);animation:pulse .45s ease-in-out infinite alternate}
@@ -355,7 +387,13 @@ th:first-child,td:first-child{text-align:left}
 .ingredient-button .food-icon img{width:100%;height:100%}
 .ingredient-button strong{display:-webkit-box;max-width:100%;overflow:hidden;font-size:12px;line-height:1.15;overflow-wrap:anywhere;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .ingredient-button small{font-size:11px;line-height:1.2;color:var(--muted)}
-.ingredient-button:disabled{opacity:.5}
+.ingredient-button:disabled{opacity:.55}
+/* The selected order's missing ingredients are outlined; ones already in the bowl are ticked. */
+.ingredient-button.needed{border-color:var(--coral);box-shadow:0 0 0 2px var(--coral),0 2px 0 #eedccd}
+.ingredient-button.needed:disabled{opacity:.9}
+.ingredient-button.done{border-color:var(--mint-line);background:var(--mint)}
+.ingredient-button.done::after{content:'✓';position:absolute;top:3px;right:4px;display:grid;place-items:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#fff;font-size:11px;font-weight:700}
+.chili-button.over{border-color:var(--coral);background:#ffc9bd}
 .new-bowl{background:#fff4e2;border-color:#efcf9c}
 .dark .new-bowl{background:#5a4330}
 .seasoning{display:none}
@@ -448,8 +486,54 @@ progress::-moz-progress-bar{background:#6fae62;border-radius:6px}
 .dark .secret-display{background:#654734}.dark .secret-display small{color:#ffe1bc}.dark .bargain-gauge{background:#775044}.dark .scrub-bowl{background:#466260}
 
 /* Toast */
-#toast{position:fixed;z-index:100;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));width:max-content;max-width:min(480px,calc(100vw - 32px));padding:12px 18px;border:1px solid #ae7f6333;border-radius:13px;background:#57382ff5;color:#fff0df;font-size:13.5px;text-align:center;box-shadow:0 8px 28px #542a3333;opacity:0;pointer-events:none;transform:translate(-50%,15px);transition:opacity .2s,transform .2s}
-#toast.show{opacity:1;transform:translate(-50%,0)}
+/* Toasts stack (newest last) so several pieces of news can be read at once. */
+#toast{position:fixed;z-index:100;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:6px;width:max-content;max-width:min(480px,calc(100vw - 32px));pointer-events:none;transform:translateX(-50%)}
+.toast-item{padding:10px 16px;border:1px solid #ae7f6333;border-radius:13px;background:#57382ff5;color:#fff0df;font-size:13.5px;line-height:1.4;text-align:center;box-shadow:0 8px 28px #542a3333;animation:toast-in .2s ease-out}
+.toast-item.tone-good{border-color:#8fc86f66;background:#2f5a3df5}
+.toast-item.tone-bad{border-color:#ef6a4f66;background:#7a2e2af5}
+.toast-item.leaving{opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s}
+/* First-bowl coach: a note in the street and a pulsing outline on the next control. */
+.coach{position:absolute;z-index:3;right:6px;bottom:8px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:0 6px;width:min(66%,320px);padding:7px 6px 7px 11px;border-radius:12px;background:#fff7e8;color:#5b3326;box-shadow:0 4px 0 #4b243466,0 0 0 2px #ffc75a;font-size:12.5px;line-height:1.35}
+.coach-badge{grid-column:1/-1;font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#c0763f}
+.coach p{margin:0}
+.coach .text-button{min-height:36px;padding:0 6px;font-size:12px;color:#9a5a3c}
+.coach-target{position:relative;z-index:2;outline:3px solid #ffc75a;outline-offset:2px;animation:coach-pulse .9s ease-in-out infinite alternate}
+/* A spill makes the floor slippery until it is mopped with three taps. */
+.puddle{position:relative;z-index:1;align-self:center;width:max-content;max-width:100%;min-height:36px;margin:0 0 8px;padding:4px 14px;border:2px solid #9ed3f0;border-radius:999px;background:radial-gradient(ellipse at 40% 35%,#e3f5ff,#8cc8ea);color:#1f4c66;font-size:12.5px;font-weight:800;white-space:nowrap;box-shadow:0 3px 0 #2e5e7a55;animation:float 1.6s ease-in-out infinite}
+.customer-tags{position:absolute;top:0;right:2px;font-size:13px;line-height:1;letter-spacing:-1px;pointer-events:none}
+.customer-tags:empty{display:none}
+.speech{position:absolute;z-index:2;top:-2px;left:50%;padding:3px 8px;border-radius:10px;background:#fff;color:#5b3326;font-size:11.5px;font-weight:800;white-space:nowrap;box-shadow:0 2px 0 #0002;transform:translateX(-50%);animation:toast-in .2s ease-out}
+.ticket-alert{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;padding:4px 5px 4px 10px;border:1px solid var(--warn-line);border-radius:10px;background:var(--warn-bg);color:var(--warn-ink);font-size:12.5px;font-weight:700}
+.ticket-alert .small-button{min-height:34px;padding:4px 12px}
+.order-toppings>.missing{background:var(--warn-bg);color:var(--warn-ink);text-decoration:line-through}
+.ingredient-button.empty{border-style:dashed;background:var(--tint)}
+.ingredient-button.empty .food-icon{opacity:.45;filter:grayscale(.6)}
+.ingredient-button.empty small{color:var(--coral);font-weight:700}
+.top-clock.warn{background:#ef4b3f;color:#fff;animation:pulse .8s ease-in-out infinite alternate}
+.shake{animation:shake .4s ease-in-out}
+.float-text{position:fixed;z-index:120;font-size:18px;font-weight:800;color:#2f8f4e;text-shadow:0 2px 0 #fff;pointer-events:none;transform:translate(-50%,-100%);animation:float-up 1.1s ease-out forwards}
+.float-text.tone-bad{color:#d8321f}
+.confetti{position:fixed;inset:0;z-index:150;overflow:hidden;pointer-events:none}
+.confetti i{position:absolute;top:-14px;left:var(--x);width:8px;height:12px;border-radius:2px;background:var(--c);transform:rotate(var(--r));animation:confetti-fall var(--d) ease-in forwards}
+.insolvent-note{display:grid;gap:6px;margin-top:8px;padding:10px 12px;border:1px solid var(--warn-line);border-radius:12px;background:var(--warn-bg);color:var(--warn-ink);font-size:13px}
+.insolvent-note p{margin:0}
+.insolvent-actions{display:flex;flex-wrap:wrap;gap:8px}
+.summary-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:6px 0 10px}
+.summary-stats>div{display:grid;justify-items:center;gap:1px;padding:8px 4px;border:1px solid var(--line);border-radius:12px;background:var(--paper);text-align:center}
+.summary-stats strong{font-size:20px;line-height:1.2}
+.summary-stats span{font-size:12px;color:var(--muted)}
+.summary-level{display:grid;grid-template-columns:auto minmax(40px,1fr) auto;align-items:center;gap:8px;margin-bottom:10px;font-size:12.5px;font-weight:700}
+.summary-level .xp-track{max-width:none;margin:0;background:var(--tint-3)}
+.summary-level .xp-track i{background:var(--coral)}
+.next-day,.stage-note{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--tint);font-size:13px}
+.unlock-list{display:grid;gap:4px;margin:8px 0;padding-left:18px;font-size:13.5px}
+.incident-art img{width:64px;height:64px}
+@keyframes toast-in{from{opacity:0;transform:translateY(10px)}}
+@keyframes coach-pulse{to{outline-color:#ef4b3f;box-shadow:0 0 0 6px #ffc75a55}}
+@keyframes shake{20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
+@keyframes float-up{to{opacity:0;transform:translate(-50%,-200%)}}
+@keyframes confetti-fall{to{transform:translateY(105vh) rotate(calc(var(--r) + 540deg))}}
+
 body:has(.play) #toast{bottom:calc(72px + env(safe-area-inset-bottom))}
 body:has(.prep) #toast{bottom:calc(118px + env(safe-area-inset-bottom))}
 
@@ -511,6 +595,7 @@ body:has(.prep) #toast{bottom:calc(118px + env(safe-area-inset-bottom))}
 }
 /* Short portrait screens: keep every control on screen */
 @media (orientation:portrait) and (max-height:640px){
+  .order-line{display:none}
   .play{gap:5px;padding-top:5px}
   .street{padding-top:12px}
   .customer-lane{padding:2px 0 4px}
@@ -581,7 +666,7 @@ body:has(.prep) #toast{bottom:calc(118px + env(safe-area-inset-bottom))}
   .empty-customer{min-height:68px}
   .street-counter{display:none}
   .customer>small{display:none}
-  .ticket-heading,.patience-copy{display:none}
+  .ticket-heading,.patience-copy,.order-line{display:none}
   .order-ticket{order:2;padding:7px 10px 8px}
   .ticket-main h2{font-size:16px}
   .spice-stamp{width:46px;height:48px}
@@ -666,6 +751,7 @@ body:has(.prep) #toast{bottom:calc(118px + env(safe-area-inset-bottom))}
   .street .scene-lamp{display:block;top:20px;right:12px;width:24px}
   .day-event{display:block}
   .ticket-heading,.patience-copy{display:flex}
+  .order-line{-webkit-line-clamp:3}
   .patience-copy{display:block}
   .order-ticket{padding:12px 14px}
   .ticket-main h2{font-size:21px}

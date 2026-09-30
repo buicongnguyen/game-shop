@@ -60,13 +60,20 @@ try {
   }
 
   for (const viewport of [touchSizes[0], touchSizes[2], touchSizes[3]]) {
-    await scenario(`dialogs-fit-${viewport.width}x${viewport.height}`, viewport, fixture(true,true), async page => {
+    await scenario(`dialogs-fit-${viewport.width}x${viewport.height}`, viewport, fixture(true,true,true), async page => {
       await page.locator('[data-action="continue"]').tap();
       for (const action of ['rush','help','goals','stockout','finish','settings','menu']) {
         await page.locator(`[data-action="${action}"]`).last().tap();
         const box = await page.locator('dialog').boundingBox();
         assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= viewport.width + .5 && box.y + box.height <= viewport.height + .5, `${action} dialog fits the screen`);
         for (const report of await reachable(page, '#dialog .modal-actions button')) assert.ok(report.ok, `${action} dialog action stays on screen: ${JSON.stringify(report)}`);
+        // A sold-out order opens a situation: it has no close button and waits for an explicit answer.
+        if (action === 'stockout') {
+          assert.equal(await page.locator('.modal-close').isVisible(), false, 'A stockout needs an explicit answer');
+          await page.locator('[data-action="incident"][data-id="later"]').tap();
+          assert.equal(await page.locator('dialog').evaluate(node => node.open), false);
+          continue;
+        }
         const close = await page.locator('.modal-close').boundingBox();
         assert.ok(close.width >= 44 && close.height >= 44 && close.y >= 0, `${action} close button is finger-sized and visible`);
         if (action === 'rush') {
@@ -191,7 +198,7 @@ function prepFixture() {
   return state;
 }
 
-function fixture(advanced=false,cooking=false) {
+function fixture(advanced=false,cooking=false,soldOut=false) {
   const state=G.createGame('Tiệm Mobile');
   state.settings.sound=false;
   state.money=advanced?100000000:1000000;
@@ -201,5 +208,6 @@ function fixture(advanced=false,cooking=false) {
   assert.ok(G.beginDay(state).ok);
   for(let index=0;index<(advanced?4:1);index++)assert.ok(G.createOrder(state,()=>.5).ok);
   if(cooking){G.takeBowl(state);G.addBroth(state,'kimchi');G.startPot(state);}
+  if(soldOut){const id=G.getSelectedOrder(state).toppings[0];assert.ok(id);state.inventory[id]=0;state.batches[id]=[];}
   return state;
 }

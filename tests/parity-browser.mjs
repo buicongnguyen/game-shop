@@ -33,9 +33,17 @@ try {
     await page.screenshot({path:'test-results/parity-fresh-prep.png',fullPage:true,animations:'disabled'});
   });
 
-  await scenario('real-arrival-correct-assembly-and-settlement',async page=>{
+  await scenario('first-bowl-tutorial-then-real-arrival-assembly-and-settlement',async page=>{
     await click(page,'new-game');await click(page,'create');await click(page,'open-day');
-    assert.equal((await save(page)).phase,'open');assert.equal(await page.locator('.customer').count(),0);
+    // A new shop is coached through one scripted bowl; the day clock waits until it is served.
+    const coached=await save(page);assert.equal(coached.phase,'open');assert.equal(coached.activeDay.tutorial,true);
+    assert.equal(await page.locator('.customer').count(),1);assert.equal(await page.locator('#coach').isVisible(),true);
+    assert.equal(await page.locator('#take-bowl').evaluate(node=>node.classList.contains('coach-target')),true,'The coach outlines the bowl stack first');
+    await page.clock.runFor(8000);assert.equal((await save(page)).activeDay.remaining,210,'The clock waits for the first bowl');
+    await assemble(page,coached.activeDay.orders[0]);assert.equal(await page.locator('[data-action="serve"]').evaluate(node=>node.classList.contains('coach-target')),true);
+    await click(page,'serve');assert.match(await page.locator('#dialog-title').textContent(),/Tô mì đầu tiên/);await close(page);
+    const handover=await save(page);assert.equal(handover.tutorialDone,true);assert.equal(handover.activeDay.tutorial,false);assert.equal(handover.activeDay.served,1);
+    assert.equal(await page.locator('#coach').isVisible(),false);assert.equal(await page.locator('.customer').count(),0);
     const regions=await page.locator('.cook-gauge').first().evaluate(gauge=>{const whole=gauge.getBoundingClientRect();return [...gauge.querySelectorAll('i')].map(region=>{const r=region.getBoundingClientRect();return {width:r.width/whole.width,left:(r.left-whole.left)/whole.width}})});
     assert.equal(regions.length,3);for(const [index,expected] of [.5,.28,.22].entries())assert.ok(Math.abs(regions[index].width-expected)<.015,`Cooking zone ${index} must occupy ${expected*100}% of the gauge`);
     assert.ok(Math.abs(regions[1].left-.5)<.015,'The green target starts at50%');
@@ -51,14 +59,14 @@ try {
     }
     await page.setViewportSize({width:1440,height:900});
     await click(page,'serve');const served=await save(page);
-    assert.equal(served.stats.served,1);assert.equal(served.activeDay.served,1);assert.equal(served.reviews.length,1);
+    assert.equal(served.stats.served,2);assert.equal(served.activeDay.served,2);assert.equal(served.reviews.length,2);
     assert.ok(served.money>before.money);assert.equal(served.inventory.bowls,before.inventory.bowls-1);assert.equal(served.inventory.noodles,before.inventory.noodles-1);
     assert.equal(served.activeDay.bowl.started,false);
     await page.screenshot({path:'test-results/parity-service-desktop.png',fullPage:true,animations:'disabled'});
     await click(page,'finish');assert.equal((await save(page)).phase,'open','Closing early asks for confirmation first');
     await click(page,'force-finish');const ended=await save(page);
     assert.equal(ended.day,2);assert.equal(ended.phase,'prep');assert.equal(ended.history.length,1);
-    assert.equal(ended.lastDay.served,1);assert.equal(ended.money,served.money-G.dailyOperatingCost(served).total);
+    assert.equal(ended.lastDay.served,2,"The coached first bowl counts toward day one");assert.equal(ended.money,served.money-G.dailyOperatingCost(served).total);
   });
 
   await scenario('wrong-order-discard-and-closing-grace',async page=>{
@@ -191,6 +199,7 @@ try {
     await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').evaluate(d=>d.open),true,'Escape cannot discard an unresolved incident');
     await page.clock.runFor(40000);assert.deepEqual(await save(page),before,'Incident pauses patience, cooking, and closing clocks');
     await page.reload();await click(page,'continue');assert.equal(await page.locator('dialog').getAttribute('data-incident'),pending.id);assert.deepEqual(await save(page),before,'Reload restores the exact unresolved incident');
+    assert.equal(await page.locator('[data-action="incident"][data-id="ignore"]').isDisabled(),true,'Choices lock briefly so a tap meant for the kitchen cannot answer');await page.clock.runFor(1100);
     const button=await page.locator('[data-action="incident"][data-id="ignore"]').elementHandle();await button.evaluate(node=>{node.click();node.click();});
     const resolved=await save(page);assert.equal(resolved.activeDay.pendingIncident,null);assert.equal(resolved.money,before.money-pending.bill);assert.equal(resolved.stats.expenses,before.stats.expenses+pending.bill);
     assert.equal(await page.locator('dialog').evaluate(d=>d.open),false);await page.clock.runFor(2200);assert.ok((await save(page)).activeDay.remaining<before.activeDay.remaining,'Service resumes after resolution');
@@ -242,7 +251,7 @@ async function noOverflow(page,where){assert.ok(await page.evaluate(()=>document
 async function hitTest(locator){return locator.evaluate(element=>{const r=element.getBoundingClientRect();return element.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))})}
 function stock(state,quantity=15){assert.ok(G.buyCart(state,Object.fromEntries(state.unlocked.map(id=>[id,quantity]))).ok);return state;}
 function openFixture(){const state=stock(G.createGame('Tiệm kiểm tra ca bán'));state.settings.sound=false;state.settings.motion=false;assert.ok(G.beginDay(state).ok);assert.ok(G.createOrder(state,()=>.5).ok);assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
-function advancedFixture(){const state=G.createGame('Tiệm đủ món');state.xp=8000;state.money=100000000;state.settings.sound=false;state.settings.motion=false;state.unlocked=G.INGREDIENTS.map(i=>i.id);stock(state,15);for(const id of ['pot2','pot3'])assert.ok(G.buyUpgrade(state,id).ok);state.reviews=[{id:'day-1-order-101',day:1,name:'Mai',rating:5,text:'Mì ngon!',reply:''},{id:'day-1-order-102',day:1,name:'An',rating:3,text:'Mong phục vụ nhanh hơn.',reply:''}];state.reputation=4;assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
+function advancedFixture(){const state=G.createGame('Tiệm đủ món');state.xp=8000;state.money=100000000;state.settings.sound=false;state.settings.motion=false;state.unlocked=G.INGREDIENTS.map(i=>i.id);stock(state,15);for(const id of ['pot2','pot3'])assert.ok(G.buyUpgrade(state,id).ok);state.reviews=[{id:'day-1-order-101',day:1,name:'Mai',rating:5,stars0:5,cause:'great',text:'Mì ngon!',thread:[],xp:false},{id:'day-1-order-102',day:1,name:'An',rating:3,stars0:3,cause:'wait',text:'Mong phục vụ nhanh hơn.',thread:[],xp:false}];state.reputation=4;assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
 function dayThreeFixture(withStock){const state=G.createGame('Tiệm ngày ba');state.day=3;state.money=1000000;state.settings.sound=false;state.settings.motion=false;if(withStock)stock(state);assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
 function washingFixture(){const state=G.createGame('Tiệm rửa tô');state.day=2;state.money=1000000;state.settings.sound=false;state.settings.motion=false;stock(state);assert.ok(G.beginDay(state).ok);for(let i=0;i<3;i++){const {order}=G.createOrder(state,()=>.5);assert.ok(order);G.takeBowl(state);G.addBroth(state,order.broth);for(const id of order.toppings)G.addTopping(state,id);for(let n=0;n<order.spice;n++)G.addChili(state);G.startPot(state);G.tickDay(state,3.1,()=>.5);G.collectPot(state);assert.ok(G.serveBowl(state,()=>.5).ok)}assert.equal(G.finishDay(state).finished,true);assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
 function incidentFixture(closing){const state=G.createGame('Tiệm xử lý tình huống');state.day=2;state.money=1000000;state.settings.sound=false;state.settings.motion=false;stock(state);assert.ok(G.beginDay(state).ok);const {order}=G.createOrder(state,()=>.5);if(!closing)assert.ok(G.createOrder(state,()=>.5).ok);G.takeBowl(state);G.addBroth(state,order.broth);for(const id of order.toppings)G.addTopping(state,id);for(let n=0;n<order.spice;n++)G.addChili(state);G.startPot(state);G.tickDay(state,3.1,()=>.5);G.collectPot(state);G.startPot(state);if(closing)assert.equal(G.finishDay(state).closing,true);const draws=[.5,.02,.9,.4,.2],result=G.serveBowl(state,()=>draws.shift()??.5);assert.equal(result.incident?.type,'dash');assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}

@@ -4,7 +4,7 @@ import * as g from '../src/game.js';
 // Deterministic 100-day player: real engine arrivals/timers, progressively buys
 // the catalog, hires helpers, restocks, assembles and serves through public APIs.
 const state = g.createGame('Tiệm trăm ngày');
-let seed = 63219, checks = 0, actions = 0;
+let seed = 63219, checks = 0, actions = 0; const situations = {};
 const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
 const reports = [];
 function verify() {
@@ -60,9 +60,10 @@ for (let day = 1; day <= 100; day++) {
   while (state.activeDay) {
     assert.ok(iterations++ < 1500, `day ${day} must make progress`);
     if (state.activeDay.pendingIncident) {
-      const incident = state.activeDay.pendingIncident;
-      const action = incident.type === 'dash' ? 'chase' : incident.type === 'money' ? incident.overpaid ? 'return' : 'remind' : incident.type === 'debt' ? 'allow' : 'topup';
-      assert.equal(g.resolveIncident(state, action).ok, true); verify(); continue;
+      // Payment incidents keep fixed answers; stories and haggles rotate through every choice so all outcomes run.
+      const incident = state.activeDay.pendingIncident, rotate = incident.options[(state.day + Number(incident.id.split('-').at(-1))) % incident.options.length].id;
+      const action = incident.type === 'dash' ? 'chase' : incident.type === 'money' ? incident.overpaid ? 'return' : 'remind' : incident.type === 'debt' ? 'allow' : incident.type === 'hair' ? 'topup' : rotate;
+      const result = g.resolveIncident(state, action, random); assert.equal(result.ok, true, `${incident.type}/${incident.story ?? ''} → ${action}: ${result.message}`); situations[incident.type === 'story' ? incident.story : incident.type] = (situations[incident.type === 'story' ? incident.story : incident.type] || 0) + 1; verify(); continue;
     }
     if (!state.activeDay.orders.length) { tick(.5); continue; }
     const order = [...state.activeDay.orders].sort((a, b) => a.patience - b.patience)[0];
@@ -89,8 +90,9 @@ for (let day = 1; day <= 100; day++) {
 }
 assert.equal(reports.length, 100);
 assert.equal(state.stats.daysPlayed, 100);
-for (const key of ['served', 'revenue', 'lost', 'customers']) assert.equal(state.stats[key], reports.reduce((sum, report) => sum + report[key], 0), `100-day ${key} conservation`);
+// Income settled overnight after the last day (a repaid debt, a windfall) belongs to a day that was never played.
+for (const key of ['served', 'revenue', 'lost', 'customers']) assert.equal(state.stats[key], reports.reduce((sum, report) => sum + report[key], 0) + (key === 'revenue' ? state.pendingIncome : 0), `100-day ${key} conservation`);
 assert.equal(g.levelInfo(state).level, 10);
 assert.ok(state.stats.served > 1000);
 assert.ok(Object.values(state.staff).every(Boolean), 'All six helpers were exercised');
-console.log(JSON.stringify({ seed: 63219, days: 100, checks, actions, bowls: state.stats.served, customers: state.stats.customers, lost: state.stats.lost, money: state.money, xp: state.xp, level: g.levelInfo(state).level, unlocked: state.unlocked.length, staff: Object.keys(state.staff).filter(id => state.staff[id]), result: 'cash/batches/persistence/timers/100-day settlement invariants passed' }));
+console.log(JSON.stringify({ seed: 63219, days: 100, checks, actions, situations, priceLost: reports.reduce((sum, report) => sum + report.priceLost, 0), pendingIncome: state.pendingIncome, bowls: state.stats.served, customers: state.stats.customers, lost: state.stats.lost, money: state.money, xp: state.xp, level: g.levelInfo(state).level, unlocked: state.unlocked.length, staff: Object.keys(state.staff).filter(id => state.staff[id]), result: 'cash/batches/persistence/timers/100-day settlement invariants passed' }));

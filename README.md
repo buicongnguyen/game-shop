@@ -27,7 +27,13 @@ Use the HTTP server, rather than opening `index.html` as a file. `npm run build`
 - Each chili tap adds one level, up to 7. A finished bowl matches any suitable waiting order, including another unfinished dish in a group. A true mismatch wastes the bowl and upsets the selected customer.
 - Customers arrive over a 210-second day. New arrivals stop near closing, then existing orders have up to 60 additional seconds. Closing early asks for confirmation, and closing again during the grace period ends immediately. Prices, reputation, events and equipment influence trade.
 - Stock expires by batch. End-of-day accounts include full rent, utilities, equipment electricity and staff wages; cash can become negative. Loan repayments separate principal and interest. Three daily goals award cash and XP.
-- Review filters and replies, equipment, staff hiring/dismissal, visible decorations, emergency restocking and stockout remedies are available from management and service screens.
+- A new shop starts with one coached bowl: the day clock waits while a coach outlines each next control.
+- From day 2, street stories interrupt service (a gas cylinder runs out, a spill, a tour bus, an inspection…). Payment incidents also interrupt it: a dine-and-dash, wrong change, a request for credit, a complaint. Service pauses and every choice has its own cost.
+- Some guests are in a hurry, change their mind about spice, or haggle after eating.
+- When a dish is sold out, the ticket shows a Handle button: rush-buy, offer a swap, drop the topping, wait for the buyer, or apologise. Tapping an empty ingredient rush-buys it.
+- Debts, windfalls and level-ups arrive as cards the next morning. If the till can't cover the minimum restock, the shop can't open until you take a loan or start a fresh shop.
+- Reviews state their cause. You can reply to a review within two days: a polite reply can win a star back, and a rude one costs one.
+- Equipment, staff, decorations and the review histogram are in the management tabs. Sound effects and music are synthesised in the browser, with their own toggles.
 - Optional market bargaining, secret-broth memory play and bowl washing add daily activities. A seeded daily challenge runs separately and keeps the main shop intact. Its records are local to this browser.
 
 The game pauses while dialogs are open and when the tab is hidden. Returning to a hidden active game shows an explicit resume dialog. Stock, the bowl, noodle pots, customers and progression persist together. Old version-1 saves are migrated and their original JSON retained as a backup; the version-1 engine never saved unfinished bowls, so that missing old state cannot be recovered.
@@ -62,7 +68,10 @@ GitHub Pages and localhost have separate browser storage. Export a save from the
 
 This project has its own code and artwork. It does not use the reference game's source, assets, account system or backend at runtime. It runs locally with no external requests. Online leaderboards, cloud accounts and real-player competition are not connected; remaining offline approximations are listed in [PARITY.md](PARITY.md). Blender and Unity are unnecessary for this 2D browser interface: editable SVGs stay sharp on every screen, weigh about 1 KB per ingredient and take the chosen awning colour. The bowl and cooking pots are drawn from game state, so the bowl shows its real broth, noodles, toppings and chili.
 
-- `src/game.js`: state, cooking, customers, economy, persistence and validation.
+- `src/game.js`: state, cooking, customers, situations, economy, persistence and validation.
+- `src/situations.js`: the street stories and the effects of each choice.
+- `src/voice.js`: original Vietnamese customer names, order lines, reviews and reply suggestions.
+- `src/audio.js`: Web Audio sound effects and two original music loops, synthesised live.
 - `src/catalog.js`: factual ingredient/equipment/staff/decoration configuration.
 - `src/sidequests.js`: optional daily mini-game state and rules.
 - `src/app.js`, `src/minigames-ui.js`, `src/ui.js`: interface and controls.

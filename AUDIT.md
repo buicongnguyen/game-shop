@@ -101,6 +101,57 @@ Reviewed but deliberately unchanged:
 - Stability: the layout suite then passed three consecutive runs.
 - Swipe helper: its swipes hold the finger still before lifting. A fling pushing against the end of the list otherwise leaves Chrome using the next tap to stop it, which real phones also do.
 
+## Reference edge cases and how they resolve — 2026-10-01 (third pass)
+
+**Method.** The delivered reference script was read again, focusing on situations and their outcomes: payment incidents, haggling, street stories, stockouts, timeouts, insolvency, the buyer, the chef, the tutorial, the morning cards and review replies. Each rule was written down as behaviour only. It was then reimplemented with original code and text.
+
+**Gaps found and closed.**
+- **Tutorial:** no first-run tutorial. Added a scripted first guest, a clock that waits, a step-by-step coach and Skip. Closing during the tutorial now hands over to a normal day.
+- **Street stories:** none existed. Added 15 original stories on day windows, sharing the daily cap. They wait while a bowl is in hand and roll their outcomes when they open. The effects include the dirty floor and the inspection, a noisy guest and tourists.
+- **Customer traits:** added the hurried, fickle and haggling traits, plus personas and spoken order lines.
+- **Stockouts:** handling was a fixed swap or cancel. It is now chance-based: guests switch or walk away on arrival, and the ticket's Handle choices cover rush, swap, drop, wait for the buyer and send away.
+- **Walkout reviews:** walkouts always left 2★. Now it's 1★ (70%) or 2★, a late app order leaves 1★, and guests still waiting at closing leave no review.
+- **Buyer and chef:** the buyer worked from the selected order's queue. It now leaves per item at depletion: 12 s, four trips, never while closing. The chef now harvests only her own pots.
+- **Insolvency:** negative cash could soft-lock a save with no explanation. Opening is now blocked with a reason, and the way out is a loan or a fresh shop. Purchases keep an opening reserve.
+- **Debts:** debt collection was silent. It now arrives as morning cards, alongside windfalls and the level-up card.
+- **Replies:** owner replies had no effect. They now follow the tone rules: a two-day window, two messages, a star cap and a one-time XP bonus. Reviews store their cause and first rating.
+- **Goals:** goals are paid when met, and there are level-up toasts.
+- **Feedback:** added a 20 s closing warning, toasts that stack, a shake on refused taps and floating earnings.
+- **Sound:** a synthesised sound engine replaces the single beep.
+
+**Hardening found while testing.**
+- A tampered save naming a story such as `constructor` could reach an inherited object property. Story lookups now use own keys only.
+- Saved choice lists are rebuilt from the situation instead of being trusted.
+
+**Evidence.**
+- `npm test`: **88/88**, adding `situations.test.js` (25 regressions), `audio.test.js` and `voice.test.js`.
+- `npm run test:simulation`: 100 days, 37,506 checks. Every story type and the inspection were exercised, with a full save round-trip after every action.
+- Browser suites: 18/18, 26/26 and 19/19 locally. The same three suites passed again against the built `/game-shop/` site.
+- Updated browser scenarios play through the tutorial, confirm the one-second lock on situation choices, and open a real stockout on 320–844px phones.
+- Screenshots at 390×844, 360×740 and 1440×900 were reviewed for the coach, story and stockout dialogs, the ticket alert, the puddle, the summary, morning cards, reviews, the reply dialog and the empty-till note. Two overlaps they revealed were fixed: the puddle over a guest's name, and the slow-stove note being hidden on phones.
+
+## Customer conditions and a bug hunt — 2026-10-01 (fourth pass)
+
+**Customer rules added from the reference script** (rules and thresholds only):
+- **Price refusals:** severe prices turn away 80% of passers-by, and 1 in 10 of those leaves a review. An expensive dish is refused 40% of the time. Students, the reviewer and tourists bypass both checks.
+- **Prices tab:** each item now shows its cost and a tag.
+- **Repeat avoidance:** guests weight away from the last six orders' ingredients.
+
+**Independent review:** a separate reviewer fuzzed about 270,000 random calls across the engine API. It checked the cash identity, stock batches, lifetime totals, reference integrity, exact save round-trips, that every situation has a working choice, and that every day can finish. Nothing failed and nothing threw. It did confirm seven smaller bugs, all fixed with regression tests:
+- **Reviewer patience:** the reviewer could keep a hurried guest's shortened patience.
+- **Level-up cards:** gaining two levels in one day showed only the last level-up card.
+- **Inspection:** the hygiene inspection used up a daily situation slot.
+- **Event preview:** the previewed event could change before opening. It is now fixed at closing, saved and validated.
+- **Story guests:** stories promising guests reported them even with every table full.
+- **Save validation:** hand-edited saves could carry a gift note with no variant, a swap of the wrong ingredient kind, or a noisy guest who isn't seated. They are now refused.
+- **Tutorial:** the test-only story trigger was not blocked during the tutorial.
+
+Two plausible issues were also changed:
+- A reviewer sent away over a sold-out dish now writes all three reviews.
+- Reply XP now depends on the review's current stars.
+
+**Test note:** the 100-day simulation's revenue check now counts income booked for the morning after its last day.
+
 ## Verification limits
 
 Automated local checks do not establish exact visual parity, original server behavior, balanced long-term economics under every player strategy, or exhaustive mobile/accessibility coverage. The remaining product differences are explicitly listed in [PARITY.md](PARITY.md). JSON saves remain player-controlled data; validation prevents malformed state from entering normal play, and does not function as an anti-cheat service.

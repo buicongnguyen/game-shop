@@ -24,8 +24,8 @@ test('reference opening starts empty at 400k, default four stars, and an editabl
   assert.ok(Object.values(state.inventory).every(value => value === 0));
   assert.equal(g.beginDay(state).ok, false);
   assert.deepEqual(state.unlocked, ['bowls', 'noodles', 'kimchi', 'beef', 'sausage']);
-  const cart = g.suggestedCart(state); assert.equal(g.cartCost(state, cart), 217500);
-  assert.equal(g.buyCart(state, cart).ok, true); assert.equal(state.inventory.bowls, 15); assert.equal(state.inventory.kimchi, 15);
+  const cart = g.suggestedCart(state); assert.equal(g.cartCost(state, cart), 337500, 'Day-one suggestion matches the reference cart');
+  assert.equal(g.buyCart(state, cart).ok, true); assert.equal(state.inventory.bowls, 25); assert.equal(state.inventory.kimchi, 20); assert.equal(state.inventory.beef, 10);
   assert.equal(g.beginDay(state).ok, true); assert.equal(state.activeDay.remaining, 210); assert.equal(state.activeDay.event.id, 'normal');
   assert.deepEqual(restore(state), state);
 });
@@ -92,7 +92,7 @@ test('groups match any unfinished dish, defer tips/reviews/combo, and retain bad
 
 test('closing grants sixty seconds and then charges all overhead, including negative cash', () => {
   const state = opened(); g.tickDay(state, 201, constant);
-  for (const order of [...state.activeDay.orders]) g.resolveStockout(state, order.id, 'cancel');
+  state.activeDay.orders = []; state.activeDay.selectedOrderId = null; // clear the tables for this closing check
   const order = orderFor(state); order.patience = order.maxPatience = 500;
   g.tickDay(state, 9, constant); assert.equal(state.phase, 'closing'); assert.equal(state.activeDay.remaining, 0); assert.ok(state.activeDay.closingRemaining > 59.8);
   assert.equal(g.createOrder(state).ok, false); state.money = 0;
@@ -103,8 +103,9 @@ test('closing grants sixty seconds and then charges all overhead, including nega
 test('same-day broth expires; stock waste is reported without charging its cost twice', () => {
   const state = opened(), cash = state.money, purchaseCost = state.pendingExpenses + state.activeDay.expenses;
   const result = close(state); assert.equal(result.summary.expenses, purchaseCost + 55000); assert.equal(state.money, cash - 55000);
-  assert.equal(state.inventory.kimchi, 0); assert.equal(state.inventory.beef, 0); assert.equal(state.inventory.noodles, 15); assert.equal(state.inventory.bowls, 15); assert.equal(state.inventory.sausage, 5); assert.ok(result.summary.spoiled > 0);
-  assert.equal(g.buyCart(state, { noodles: 1 }).ok, true); assert.equal(g.buyCart(state, { kimchi: 1 }).ok, true); g.beginDay(state); g.startPot(state); assert.equal(state.batches.noodles[0].qty, 14, 'Older noodle lot is consumed first');
+  assert.equal(state.inventory.kimchi, 0); assert.equal(state.inventory.beef, 0); assert.equal(state.inventory.noodles, 20); assert.equal(state.inventory.bowls, 25); assert.equal(state.inventory.sausage, 10); assert.ok(result.summary.spoiled > 0);
+  state.money += 100000; // the day-one cart leaves little cash; this part only checks FIFO lots
+  assert.equal(g.buyCart(state, { noodles: 1 }).ok, true); assert.equal(g.buyCart(state, { kimchi: 1 }).ok, true); g.beginDay(state); g.startPot(state); assert.equal(state.batches.noodles[0].qty, 19, 'Older noodle lot is consumed first');
 });
 
 test('staff/equipment level gates, cooking duration, and daily wages work', () => {
@@ -124,7 +125,7 @@ test('chef auto-collects at ideal timing; a full basket never makes an extra pot
 
 test('last allocated broth is not mistaken for a stockout, and rush restocking charges 1.5x', () => {
   const state = g.createGame(); g.buyCart(state, { bowls: 3, noodles: 3, kimchi: 1, sausage: 2 }); g.beginDay(state); const order = orderFor(state); g.takeBowl(state); g.addBroth(state, order.broth);
-  const before = JSON.stringify(order); assert.equal(g.resolveStockout(state, order.id, 'substitute').ok, false); assert.equal(JSON.stringify(order), before);
+  const before = JSON.stringify(order); assert.equal(g.missingFor(state, order), null); assert.equal(g.openStockout(state, order.id, constant).ok, false); assert.equal(state.activeDay.pendingIncident, null); assert.equal(JSON.stringify(order), before);
   assert.equal(g.cartCost(state, { kimchi: 5 }, { rush: true }), 45000); assert.equal(g.buyCart(state, { kimchi: 5 }, { rush: true }).cost, 45000);
 });
 
@@ -173,6 +174,23 @@ test('topping helper only completes a bowl that still matches the selected order
   const sausage = state.inventory.sausage; g.selectOrder(state, second.id); g.tickDay(state, .1, constant);
   assert.deepEqual(state.activeDay.bowl.toppings, ['beef'], 'Selecting another customer must not add their toppings to this bowl');
   assert.equal(state.inventory.sausage, sausage, 'No stock is spent on a bowl nobody ordered');
+});
+
+test('customer forecast follows reputation like the reference (18 on day one, 8 after a 1.6-star day)', () => {
+  const shop = g.createGame(); assert.equal(g.forecastCustomers(shop), 18);
+  shop.day = 2; shop.reputation = 1.6; assert.equal(g.forecastCustomers(shop), 8);
+  const cart = g.suggestedCart(shop); assert.ok(cart.bowls >= 5 && cart.noodles >= 5 && cart.kimchi >= 5, 'Essentials are always suggested');
+});
+
+test('an impatient dine-in customer can be offered one tea that restores patience', () => {
+  const state = opened(), order = orderFor(state);
+  assert.equal(g.offerTea(state, order.id).ok, false, 'Tea is only offered to impatient customers');
+  order.patience = order.maxPatience * .5; const money = state.money, expenses = state.stats.expenses;
+  assert.equal(g.offerTea(state, order.id).ok, true);
+  assert.equal(state.money, money - g.TEA_COST); assert.equal(state.stats.expenses, expenses + g.TEA_COST);
+  assert.ok(Math.abs(order.patience - order.maxPatience * .85) < .02, 'Tea restores 35% of maximum patience');
+  order.patience = order.maxPatience * .2; assert.equal(g.offerTea(state, order.id).ok, false, 'Only one tea per customer');
+  assert.deepEqual(restore(state), state);
 });
 
 test('weekday events never label a weekend and the spice challenge starts at stage two', () => {
@@ -227,7 +245,7 @@ test('delivery has an independent two-order queue, singles, clock, cutoff, and a
   state.activeDay.appSpawnElapsed = state.activeDay.nextAppArrival; g.tickDay(state, .1, constant);
   const deliveries = state.activeDay.orders.filter(order => order.delivery); assert.equal(deliveries.length, 2); assert.ok(deliveries.every(order => order.bowlsTotal === 1));
   assert.equal(g.createOrder(state, constant).ok, false);
-  const ordinary = state.activeDay.orders.find(order => !order.delivery); g.resolveStockout(state, ordinary.id, 'cancel'); assert.equal(g.createOrder(state, constant).ok, true, 'Full delivery queue does not occupy the freed dine-in table');
+  const ordinary = state.activeDay.orders.find(order => !order.delivery); state.activeDay.orders = state.activeDay.orders.filter(order => order !== ordinary); assert.equal(g.createOrder(state, constant).ok, true, 'Full delivery queue does not occupy the freed dine-in table');
   const delivery = deliveries[0]; g.selectOrder(state, delivery.id); prepare(state, delivery);
   const sold = g.serveBowl(state, constant); assert.equal(sold.orderId, delivery.id); assert.equal(sold.tip, 0); assert.equal(sold.fee, Math.round(delivery.price * .2));
   state.activeDay.remaining = 10; state.activeDay.elapsed = 200; state.activeDay.appSpawnElapsed = state.activeDay.nextAppArrival;
