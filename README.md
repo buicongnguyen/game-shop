@@ -23,6 +23,7 @@ Use the HTTP server, rather than opening `index.html` as a file. `npm run build`
 - The catalog contains 32 ingredients, 20 equipment/accessory upgrades, 6 staff members, 13 decorations and 10 progression levels. Ingredients have individual purchase/sale prices, unlock costs and expiry dates.
 - Read each customer's broth, toppings and spice request. Taking a bowl, starting noodles and adding ingredients immediately consumes stock. Already-added ingredients cannot be removed or refunded.
 - Noodles cook for 5.2 seconds, or 4.2 with the stove. Collect between 50% and 78% for ideal doneness. Raw/soft noodles can be served at a rating penalty; unattended noodles burn. Extra pots and staff enable parallel cooking.
+- On phones, swipe the ingredient palettes to reach more choices. When cooking pots scroll out of view, a compact panel keeps their timers, collection buttons and selected recipe within reach. Landscape screens support normal finger scrolling.
 - Each chili tap adds one level, up to 7. A finished bowl matches any suitable waiting order, including another unfinished dish in a group. A true mismatch wastes the bowl and upsets the selected customer.
 - Customers arrive over a 210-second day. New arrivals stop near closing, then existing orders have up to 60 additional seconds. Closing again can end immediately. Prices, reputation, events and equipment influence trade.
 - Stock expires by batch. End-of-day accounts include full rent, utilities, equipment electricity and staff wages; cash can become negative. Loan repayments separate principal and interest. Three daily goals award cash and XP.
@@ -40,14 +41,16 @@ npm test
 npm ci
 npx playwright install chromium
 npm run test:browser
+npm run build
 npm run test:pages
 npm run test:simulation
-npm run build
 ```
 
 The browser runner starts and closes its own local test server. Tests cover engine invariants, reference-based mechanics, side games, actual cooking controls, save/import/export, pauses, keyboard focus, local competition, art loading and responsive layouts. A seeded 100-day simulation checks cash flow, inventory batches and live-save round trips. Screenshots and machine-readable reports are written to `test-results/`. Historical version-1 tests are retained in `tests/archive-v1/` and are excluded from the current commands.
 
 `npm run test:pages` serves only the compiled `dist/` directory beneath `/game-shop/` and runs the full browser suite there. Requests that accidentally target the host root fail this check.
+
+Both browser commands include held mouse/touch/keyboard presses while timers advance, canceled gestures, pot expiry and chef transitions, plus mobile finger scrolling and ingredient swipes. The tests use browser device emulation; physical iOS/Android hardware was not tested.
 
 ## GitHub Pages deployment
 
@@ -63,7 +66,7 @@ This project has its own code and artwork. It does not use the reference game's 
 - `src/catalog.js`: factual ingredient/equipment/staff/decoration configuration.
 - `src/sidequests.js`: optional daily mini-game state and rules.
 - `src/app.js`, `src/minigames-ui.js`, `src/ui.js`: interface and controls.
-- `src/style.css`, `src/parity.css`: layout, appearance and responsive behavior.
+- `src/style.css`, `src/parity.css`, `src/mobile.css`: layout, appearance and responsive behavior.
 - `public/assets/`: original illustrations, local fonts and font licenses.
 - `server.mjs`, `tools/`: local server, build and verification runner.
 - `reference-values.md`: observed rules used for the independent implementation.

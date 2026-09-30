@@ -40,7 +40,8 @@ try {
   }
   assert.equal((await fetch(url + 'assets/favicon.svg')).status, 200);
   console.log(`Testing the built GitHub Pages artifact at ${url}`);
-  const tests = spawn(process.execPath, ['tests/parity-browser.mjs'], {
+  for (const file of ['parity-browser.mjs', 'mobile-interaction.mjs', 'mobile-layout.mjs']) {
+  const tests = spawn(process.execPath, [`tests/${file}`], {
     cwd: projectRoot,
     stdio: 'inherit',
     env: { ...process.env, PARITY_URL: url }
@@ -48,6 +49,7 @@ try {
   const [code, signal] = await once(tests, 'exit');
   if (code !== 0) process.exitCode = code || 1;
   if (signal) console.error(`Pages browser tests terminated with ${signal}.`);
+  }
 } finally {
   server.closeAllConnections();
   await new Promise(resolve => server.close(resolve));

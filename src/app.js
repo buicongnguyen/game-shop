@@ -51,12 +51,97 @@ function decorPanel() { const level = G.levelInfo(game).level; return heading('M
 function reviewsPanel() { const reviews = [...game.reviews].reverse().filter(review=>!reviewFilter||review.rating===reviewFilter); return heading('Khách nói gì về tiệm?', `Điểm tiệm ${game.reputation.toFixed(1)} / 5 · Trung bình 30 lượt đánh giá gần nhất.`) + `<div class="review-filters">${[0,5,4,3,2,1].map(value=>`<button class="${reviewFilter===value?'active':''}" data-action="review-filter" data-id="${value}">${value?value+' ★':'Tất cả'}</button>`).join('')}</div>` + (reviews.length ? reviews.map((review,index)=>`<article class="review"><div class="review-avatar">${portrait(index+20)}</div><div class="review-body"><strong>${esc(review.name)}</strong><small>Ngày ${review.day}</small><div class="stars">${'★'.repeat(review.rating)}${'☆'.repeat(5-review.rating)}</div><p>${esc(review.text)}</p>${review.reply?`<p class="owner-reply"><strong>Chủ tiệm:</strong> ${esc(review.reply)}</p>`:''}<button class="text-button" data-action="reply" data-id="${esc(review.id)}">${review.reply?'Sửa trả lời':'Trả lời'}</button></div></article>`).join('') : '<div class="empty-state">☆<h3>Đang chờ câu chuyện đầu tiên</h3><p>Phục vụ một tô mì thật ngon để nhận đánh giá.</p></div>'); }
 function accountsPanel() { const c = costs(); return heading('Sổ thu chi của tiệm', 'Nguyên liệu, thiết bị và lương đều được ghi nhận. Tiền cuối ngày có thể âm nếu không đủ trả chi phí.') + `<div class="stat-grid"><div><span>Tổng doanh thu</span><strong>${money(game.stats.revenue)}</strong></div><div><span>Tổng chi phí</span><strong>${money(game.stats.expenses)}</strong></div><div><span>Đã phục vụ</span><strong>${game.stats.served} tô</strong></div><div><span>Tiền tip</span><strong>${money(game.stats.tips)}</strong></div></div><div class="cost-breakdown"><p>Tiền thuê <b>${money(c.rent)}</b></p><p>Điện nước <b>${money(c.utilities)}</b></p><p>Lương nhân viên <b>${money(c.wages)}</b></p><p>Nợ còn lại <b>${money(game.debt)}</b></p></div><div class="account-actions"><button class="secondary" data-action="loan">Vay vốn</button><button class="secondary" data-action="repay" ${!game.debt?'disabled':''}>Trả nợ</button><button class="secondary" data-action="records">🏆 Thành tích</button></div><h3>Những ngày đã qua</h3>${game.history.length?`<div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Tô</th><th>Thu</th><th>Chi</th><th>Lãi/lỗ</th></tr></thead><tbody>${[...game.history].reverse().slice(0,30).map(day=>`<tr><td>${day.day}</td><td>${day.served}</td><td>${money(day.revenue)}</td><td>${money(day.expenses)}</td><td class="${day.profit<0?'negative':'positive'}">${money(day.profit)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="panel-description">Chốt ngày đầu tiên để xem sổ thu chi.</p>'}`; }
 function customerHTML() { const orders = game.activeDay.orders.filter(order=>!order.delivery); const count = game.upgrades.table?4:3; return orders.map((order,index)=>`<button class="customer ${game.activeDay.selectedOrderId===order.id?'selected':''}" data-action="order" data-id="${order.id}" aria-label="Đơn của ${esc(order.name)}" aria-pressed="${game.activeDay.selectedOrderId===order.id}"><span class="patience-ring" style="--patience:${order.patience/order.maxPatience*100}%">${portrait(index)}</span><strong>${esc(order.name)}</strong><small>${order.bowlsTotal>1?`Nhóm · ${order.bowlsServed}/${order.bowlsTotal} tô`:itemName(order.broth)}</small><span class="customer-status">${Math.ceil(order.patience)}s · ${order.spice} 🌶</span></button>`).join('') + Array.from({length:Math.max(0,count-orders.length)},()=>'<div class="empty-customer"><span>♧</span><small>Bàn trống</small></div>').join(''); }
-function deliveryHTML() { return game.activeDay.orders.filter(order=>order.delivery).map(order=>`<button class="delivery-order ${game.activeDay.selectedOrderId===order.id?'selected':''}" data-action="order" data-id="${order.id}">🛵 ${esc(order.name)} · ${Math.ceil(order.patience)}s <small>Phí app 20%</small></button>`).join(''); }
+function deliveryHTML() { return game.activeDay.orders.filter(order=>order.delivery).map(order=>`<button class="delivery-order ${game.activeDay.selectedOrderId===order.id?'selected':''}" data-action="order" data-id="${order.id}"><span class="delivery-summary">🛵 ${esc(order.name)} · ${Math.ceil(order.patience)}s </span><small>Phí app 20%</small></button>`).join(''); }
 function ticketHTML() { const order = G.getSelectedOrder(game); if (!order) return '<div class="ticket-empty"><span>🍜</span><h3>Chờ một chút, khách sắp tới!</h3><p>Bạn có thể luộc mì trước. Nồi sẽ cháy khi kim chạy hết vạch.</p></div>'; return `<div class="ticket-heading"><span>PHIẾU GỌI MÓN ${order.delivery?'· GIAO HÀNG':''}</span><strong>${esc(order.name)}</strong></div><div class="ticket-main"><div><h2>${esc(byId(order.broth)?.name)}</h2><p>${order.bowlsTotal>1?`Tô ${order.bowlsServed+1}/${order.bowlsTotal} · `:''}${money(order.price)}</p></div><span class="spice-stamp">CẤP<strong>${order.spice}</strong>🌶</span></div><div class="order-toppings">${order.toppings.length?order.toppings.map(id=>`<span>${icon(id)} ${esc(itemName(id))}</span>`).join(''):'<span>Không topping</span>'}</div><div class="ticket-patience"><span style="width:${order.patience/order.maxPatience*100}%"></span></div><small class="patience-copy">Khách chờ thêm ${Math.ceil(order.patience)} giây${order.mistakes?` · Đã nhầm ${order.mistakes} lần`:''}</small>`; }
 function potsHTML() { return game.activeDay.pots.map((pot,index)=>`<button class="pot-button ${pot?'boiling':''}" data-action="pot" data-index="${index}"><span class="pot-icon">🍲</span><strong>${pot?'Vớt mì':'Luộc mì'}${game.activeDay.pots.length>1?` · Nồi ${index+1}`:''}</strong><small>${pot?`${pot.elapsed<pot.duration*.5?'Còn sống':pot.elapsed<=pot.duration*.78?'Vừa chín':'Mì mềm'} · ${(pot.duration-pot.elapsed).toFixed(1)}s`:`${game.upgrades.stove?'4,2':'5,2'} giây`}</small><span class="cook-gauge"><i></i><i></i><i></i><b style="left:${pot?Math.min(100,pot.elapsed/pot.duration*100):0}%"></b></span></button>`).join(''); }
 function bowlHTML() { const bowl = game.activeDay.bowl; return `${bowl.started?`<div class="assembled-bowl ${bowl.broth?'has-broth':''}"><img src="./assets/bowl.svg" alt="Tô mì đang làm"><div class="bowl-float-icons">${bowl.toppings.map(id=>`<span>${icon(id)}</span>`).join('')}</div>${bowl.spice?`<span class="bowl-spice">${bowl.spice} 🌶</span>`:''}</div>`:'<div class="empty-bowl-spot">Lấy một chiếc tô<br>để bắt đầu nấu</div>'}<div class="bowl-meta"><strong>${bowl.broth?esc(itemName(bowl.broth)):bowl.started?'Tô trống':'Bếp đang chờ bạn'}</strong><span>${bowl.noodles?({raw:'Mì còn sống',cooked:'Mì vừa chín ✓',soft:'Mì quá mềm'})[bowl.noodles]:'Chưa có mì'} · ${bowl.toppings.length}/4 topping · Cay ${bowl.spice}</span><small>Đã dùng ${money(bowl.cost)} nguyên liệu</small></div>`; }
-function play() { const day = game.activeDay; if (!day) { screen='prep'; prep(); return; } app.innerHTML = `${topbar()}<main class="play"><section class="customer-side"><div class="street"><div class="awning"></div><div class="string-lights">●　●　●　●　●</div><div class="street-title"><h1>${esc(game.name)}</h1><span id="day-clock"></span></div><div class="customer-lane" id="customers">${customerHTML()}</div><div class="delivery-strip" id="deliveries">${deliveryHTML()}</div><div class="street-counter"><span>Đã bán <b id="served-count">${day.served}</b> tô</span><span>Combo <b id="combo-count">${day.combo}</b> 🔥</span><span id="day-revenue">${money(day.revenue)}</span></div><div class="day-progress"><i id="day-progress-bar"></i></div>${decorScene()}</div><div class="day-event">${esc(day.event.name)} · ${esc(day.event.description)}</div><div id="closing-notice" class="closing-notice"></div><div class="order-ticket" id="ticket">${ticketHTML()}</div><div class="service-actions"><button class="secondary" data-action="rush">🧺 Nhập gấp</button><button class="secondary" data-action="stockout">Hết món</button><button class="secondary" data-action="goals">🎯 Mục tiêu</button></div></section><section class="kitchen"><div class="kitchen-heading"><h2>Góc bếp nhỏ</h2><button class="text-button" data-action="help">Cách nấu ↗</button></div><div class="station-title"><span>01</span> TÔ & NƯỚC DÙNG</div><div class="broth-row"><button class="ingredient-button new-bowl" id="take-bowl" data-action="bowl"><span class="food-icon">${icon('bowls')}</span><strong>Lấy tô</strong><small data-stock="bowls"></small></button>${startedItems('broth').map(item=>`<button class="ingredient-button broth-button" data-action="broth" data-id="${item.id}"><span class="food-icon">${icon(item.id)}</span><strong>${esc(item.shortName)}</strong><small data-stock="${item.id}"></small></button>`).join('')}</div><div class="station-title"><span>02</span> LUỘC & VỚT MÌ <small>Vớt ở vùng xanh · 50–78%</small></div><div class="cooking-row" id="pots">${potsHTML()}</div><button class="basket-button" data-action="basket" id="basket-button" ${!game.staff.chef?'hidden':''}></button><div class="worktop" id="bowl-display">${bowlHTML()}</div><div class="station-title"><span>03</span> TOPPING & ĐỘ CAY</div><div class="topping-row">${startedItems('topping').map(item=>`<button class="ingredient-button topping-button" data-action="topping" data-id="${item.id}"><span class="food-icon">${icon(item.id)}</span><strong>${esc(item.shortName)}</strong><small data-stock="${item.id}"></small></button>`).join('')}</div><div class="seasoning"><div><strong>Thêm ớt</strong><small>Mỗi lần +1 cấp · Không thể giảm</small></div><button class="chili-button" data-action="chili">🌶 +1 <b id="chili-level">0 / 7</b></button></div><div class="serve-row"><button class="discard" data-action="discard">Bỏ tô</button><button class="primary serve" data-action="serve">Giao món <span>→</span></button></div><div class="kitchen-bottom"><span id="noodle-stock"></span><button class="text-button" data-action="finish">Chốt ngày</button></div></section></main>`; updatePlay(); }
-function updatePlay() { if (screen !== 'play' || !game?.activeDay) return; const day = game.activeDay, bowl = day.bowl; $('[data-value="money"]').textContent=money(game.money); $('[data-value="reputation"]').textContent=game.reputation.toFixed(1); replaceContents($('#customers'),customerHTML()); replaceContents($('#deliveries'),deliveryHTML()); replaceContents($('#ticket'),ticketHTML()); replaceContents($('#pots'),potsHTML()); replaceContents($('#bowl-display'),bowlHTML()); $('#served-count').textContent=day.served; $('#combo-count').textContent=day.combo; $('#day-revenue').textContent=money(day.revenue); $('#day-clock').textContent=game.phase==='closing'?`Dọn đơn · ${clockText(day.closingRemaining)}`:clockText(day.remaining); $('#day-progress-bar').style.width=`${(1-day.remaining/210)*100}%`; $('#closing-notice').textContent=game.phase==='closing'?`Đã ngừng nhận khách. Còn ${Math.ceil(day.closingRemaining)} giây hoàn thành đơn.`:''; $('#closing-notice').hidden=game.phase!=='closing'; $('#chili-level').textContent=`${bowl.spice} / 7`; $('#noodle-stock').textContent=`Kho mì: ${G.inventoryCount(game,'noodles')} · Hao phí: ${money(day.waste)}`; $('#basket-button').textContent=`🧺 Rổ mì chín của Bé Na: ${day.readyNoodles.length} · Lấy mì`; $('#basket-button').disabled=!day.readyNoodles.length||!bowl.started||!!bowl.noodles;
+// Animated values must not replace buttons between pointer/key down and release.
+function setText(node, value) { if (node.textContent !== String(value)) node.textContent = value; }
+function updateOrders(container, delivery = false) {
+  const orders = game.activeDay.orders.filter(order => !!order.delivery === delivery);
+  const existing = new Map([...container.querySelectorAll('[data-id]')].map(node => [node.dataset.id, node]));
+  const wanted = new Set(orders.map(order => order.id));
+  for (const [id, node] of existing) if (!wanted.has(id)) node.remove();
+  orders.forEach((order, index) => {
+    let node = existing.get(order.id);
+    if (!node) {
+      node = document.createElement('button');
+      node.className = delivery ? 'delivery-order' : 'customer';
+      node.dataset.action = 'order'; node.dataset.id = order.id;
+      node.innerHTML = delivery ? '<span class="delivery-summary"></span><small>Phí app 20%</small>' : `<span class="patience-ring">${portrait(index)}</span><strong></strong><small></small><span class="customer-status"></span>`;
+    }
+    // Do not move a button already in place: moving a focused node can lose focus.
+    if (container.children[index] !== node) container.insertBefore(node, container.children[index] || null);
+    const selected = game.activeDay.selectedOrderId === order.id;
+    node.classList.toggle('selected', selected);
+    node.setAttribute('aria-pressed', String(selected));
+    node.setAttribute('aria-label', `Đơn của ${order.name}`);
+    if (delivery) {
+      setText(node.querySelector('.delivery-summary'), `🛵 ${order.name} · ${Math.ceil(order.patience)}s `);
+    } else {
+      node.querySelector('.patience-ring').style.setProperty('--patience', `${order.patience/order.maxPatience*100}%`);
+      setText(node.querySelector('strong'), order.name);
+      setText(node.querySelector('small'), order.bowlsTotal > 1 ? `Nhóm · ${order.bowlsServed}/${order.bowlsTotal} tô` : itemName(order.broth));
+      setText(node.querySelector('.customer-status'), `${Math.ceil(order.patience)}s · ${order.spice} 🌶`);
+    }
+  });
+  if (!delivery) {
+    const count = Math.max(0, (game.upgrades.table ? 4 : 3) - orders.length);
+    const empty = [...container.querySelectorAll('.empty-customer')];
+    empty.slice(count).forEach(node => node.remove());
+    for (let i = empty.length; i < count; i++) {
+      const node = document.createElement('div'); node.className = 'empty-customer';
+      node.innerHTML = '<span>♧</span><small>Bàn trống</small>'; container.append(node);
+    }
+  }
+}
+function potStatus(pot) { return pot ? `${pot.elapsed < pot.duration*.5 ? 'Còn sống' : pot.elapsed <= pot.duration*.78 ? 'Vừa chín' : 'Mì mềm'} · ${Math.max(0,pot.duration-pot.elapsed).toFixed(1)}s` : `${game.upgrades.stove ? '4,2' : '5,2'} giây`; }
+function paintPot(node, pot, index, dock = false) {
+  node.classList.toggle('boiling', !!pot);
+  setText(node.querySelector('strong'), `${pot ? 'Vớt mì' : 'Luộc mì'}${dock || game.activeDay.pots.length > 1 ? ` · Nồi ${index+1}` : ''}`);
+  setText(node.querySelector('small'), potStatus(pot));
+  node.querySelector('.cook-gauge b').style.left = `${pot ? Math.min(100,pot.elapsed/pot.duration*100) : 0}%`;
+}
+function cookingDockHTML() {
+  return `<aside id="mobile-cook-dock" class="cooking-dock" aria-label="Nồi đang nấu" hidden><div class="dock-order"></div><div class="dock-pots">${game.activeDay.pots.map((_,index) => `<button class="dock-pot" data-action="collect-pot" data-index="${index}" hidden><strong></strong><small></small><span class="cook-gauge"><i></i><i></i><i></i><b></b></span></button>`).join('')}</div></aside>`;
+}
+function updatePots() {
+  const pots = game.activeDay.pots, dock = $('#mobile-cook-dock');
+  $('#pots').style.setProperty('--pot-count', pots.length);
+  $('#pots').querySelectorAll('.pot-button').forEach((node,index) => paintPot(node,pots[index],index));
+  const hot = pots.filter(Boolean).length;
+  $('.play').classList.toggle('has-hot-pots', hot > 0);
+  dock.style.setProperty('--pot-count', Math.max(1,hot));
+  dock.querySelectorAll('.dock-pot').forEach((node,index) => { node.hidden = !pots[index]; paintPot(node,pots[index],index,true); });
+  const order = G.getSelectedOrder(game);
+  setText(dock.querySelector('.dock-order'), order ? `${itemName(order.broth)} · Cay ${order.spice} · ${order.toppings.map(itemName).join(', ') || 'Không topping'}` : 'Vớt ở vùng xanh · 50–78%');
+  updateDockVisibility();
+}
+function updateDockVisibility() {
+  const dock = $('#mobile-cook-dock');
+  if (!dock || screen !== 'play' || !active()) return;
+  const rect = $('#pots').getBoundingClientRect(), viewport = window.visualViewport;
+  let top = viewport?.offsetTop || 0, bottom = top + (viewport?.height || innerHeight);
+  // Tablets can scroll the kitchen inside the page. A pot behind that pane's
+  // edge is not visible merely because its coordinates remain in the viewport.
+  for (let parent = $('#pots').parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+    if (/^(auto|scroll|hidden|clip)$/.test(getComputedStyle(parent).overflowY)) {
+      const bounds = parent.getBoundingClientRect();
+      top = Math.max(top, bounds.top + parent.clientTop);
+      bottom = Math.min(bottom, bounds.top + parent.clientTop + parent.clientHeight);
+    }
+  }
+  const mobile = matchMedia('(max-width:650px), (max-aspect-ratio:4/5), (pointer:coarse), (max-height:540px)').matches;
+  dock.hidden = !mobile || !game.activeDay.pots.some(Boolean) || (rect.top >= top - .5 && rect.bottom <= bottom + .5);
+}
+let dockFrame = 0;
+function scheduleDockPosition() { if (!dockFrame) dockFrame = requestAnimationFrame(() => { dockFrame = 0; updateDockVisibility(); }); }
+document.addEventListener('scroll', scheduleDockPosition, {capture:true, passive:true});
+window.addEventListener('resize', scheduleDockPosition, {passive:true});
+window.visualViewport?.addEventListener('resize', scheduleDockPosition, {passive:true});
+window.visualViewport?.addEventListener('scroll', scheduleDockPosition, {passive:true});
+function play() { const day = game.activeDay; if (!day) { screen='prep'; prep(); return; } app.innerHTML = `${topbar()}<main class="play"><section class="customer-side"><div class="street"><div class="awning"></div><div class="string-lights">●　●　●　●　●</div><div class="street-title"><h1>${esc(game.name)}</h1><span id="day-clock"></span></div><div class="customer-lane" id="customers">${customerHTML()}</div><div class="delivery-strip" id="deliveries">${deliveryHTML()}</div><div class="street-counter"><span>Đã bán <b id="served-count">${day.served}</b> tô</span><span>Combo <b id="combo-count">${day.combo}</b> 🔥</span><span id="day-revenue">${money(day.revenue)}</span></div><div class="day-progress"><i id="day-progress-bar"></i></div>${decorScene()}</div><div class="day-event">${esc(day.event.name)} · ${esc(day.event.description)}</div><div id="closing-notice" class="closing-notice"></div><div class="order-ticket" id="ticket">${ticketHTML()}</div><div class="service-actions"><button class="secondary" data-action="rush">🧺 Nhập gấp</button><button class="secondary" data-action="stockout">Hết món</button><button class="secondary" data-action="goals">🎯 Mục tiêu</button></div></section><section class="kitchen"><div class="kitchen-heading"><h2>Góc bếp nhỏ</h2><button class="text-button" data-action="help">Cách nấu ↗</button></div><div class="station-title"><span>01</span> TÔ & NƯỚC DÙNG</div><div class="broth-row"><button class="ingredient-button new-bowl" id="take-bowl" data-action="bowl"><span class="food-icon">${icon('bowls')}</span><strong>Lấy tô</strong><small data-stock="bowls"></small></button>${startedItems('broth').map(item=>`<button class="ingredient-button broth-button" data-action="broth" data-id="${item.id}"><span class="food-icon">${icon(item.id)}</span><strong>${esc(item.shortName)}</strong><small data-stock="${item.id}"></small></button>`).join('')}</div><div class="station-title"><span>02</span> LUỘC & VỚT MÌ <small>Vớt ở vùng xanh · 50–78%</small></div><div class="cooking-row" id="pots">${potsHTML()}</div><button class="basket-button" data-action="basket" id="basket-button" ${!game.staff.chef?'hidden':''}></button><div class="worktop" id="bowl-display">${bowlHTML()}</div><div class="station-title"><span>03</span> TOPPING & ĐỘ CAY</div><div class="topping-row">${startedItems('topping').map(item=>`<button class="ingredient-button topping-button" data-action="topping" data-id="${item.id}"><span class="food-icon">${icon(item.id)}</span><strong>${esc(item.shortName)}</strong><small data-stock="${item.id}"></small></button>`).join('')}</div><div class="seasoning"><div><strong>Thêm ớt</strong><small>Mỗi lần +1 cấp · Không thể giảm</small></div><button class="chili-button" data-action="chili">🌶 +1 <b id="chili-level">0 / 7</b></button></div><div class="serve-row"><button class="discard" data-action="discard">Bỏ tô</button><button class="primary serve" data-action="serve">Giao món <span>→</span></button></div><div class="kitchen-bottom"><span id="noodle-stock"></span><button class="text-button" data-action="finish">Chốt ngày</button></div></section></main>${cookingDockHTML()}`; updatePlay(); }
+function updatePlay() { if (screen !== 'play' || !game?.activeDay) return; const day = game.activeDay, bowl = day.bowl; $('[data-value="money"]').textContent=money(game.money); $('[data-value="reputation"]').textContent=game.reputation.toFixed(1); updateOrders($('#customers')); updateOrders($('#deliveries'),true); replaceContents($('#ticket'),ticketHTML()); updatePots(); replaceContents($('#bowl-display'),bowlHTML()); $('#served-count').textContent=day.served; $('#combo-count').textContent=day.combo; $('#day-revenue').textContent=money(day.revenue); $('#day-clock').textContent=game.phase==='closing'?`Dọn đơn · ${clockText(day.closingRemaining)}`:clockText(day.remaining); $('#day-progress-bar').style.width=`${(1-day.remaining/210)*100}%`; $('#closing-notice').textContent=game.phase==='closing'?`Đã ngừng nhận khách. Còn ${Math.ceil(day.closingRemaining)} giây hoàn thành đơn.`:''; $('#closing-notice').hidden=game.phase!=='closing'; $('#chili-level').textContent=`${bowl.spice} / 7`; $('#noodle-stock').textContent=`Kho mì: ${G.inventoryCount(game,'noodles')} · Hao phí: ${money(day.waste)}`; $('#basket-button').textContent=`🧺 Rổ mì chín của Bé Na: ${day.readyNoodles.length} · Lấy mì`; $('#basket-button').disabled=!day.readyNoodles.length||!bowl.started||!!bowl.noodles;
   document.querySelectorAll('[data-stock]').forEach(node=>node.textContent=`Còn ${G.inventoryCount(game,node.dataset.stock)}`);
   document.querySelectorAll('[data-action="broth"]').forEach(node=>node.disabled=!bowl.started||!!bowl.broth||!G.inventoryCount(game,node.dataset.id));
   document.querySelectorAll('[data-action="topping"]').forEach(node=>node.disabled=!bowl.started||bowl.toppings.includes(node.dataset.id)||bowl.toppings.length>=4||!G.inventoryCount(game,node.dataset.id));
@@ -97,6 +182,21 @@ function exportSave() { if (!game) return; const blob=new Blob([JSON.stringify(c
 function importSave() { const input=document.createElement('input'); input.type='file';input.accept='.json,application/json'; input.onchange=async()=>{const file=input.files[0]; if (!file)return; if(file.size>2000000){toast('Bản lưu quá lớn.');return;} const raw=await file.text(), loaded=G.loadGame({getItem:()=>raw}); if(!loaded){toast('Bản lưu không hợp lệ hoặc đã hỏng.');return;} openModal('Nhập tiệm đã lưu',`<p>Thay bản lưu hiện tại bằng tiệm <strong>${esc(loaded.name)}</strong>, ngày ${loaded.day}?</p>`,'<button class="secondary" data-action="close-modal">Hủy</button><button class="primary" id="confirm-import">Nhập bản lưu</button>'); $('#confirm-import').onclick=()=>{game=loaded;challenge=null;cartDay=null;screen=active()?'play':'prep';closeModal();persist();render();toast('Đã nhập bản lưu.');};};input.click(); }
 function adjustQuantity(id,delta) { cart[id]=Math.min(99,Math.max(0,(cart[id]||0)+delta)); const input=document.getElementById(`qty-${id}`);if(input)input.value=cart[id];updateCartQuote(); }
 function stopHold() { clearTimeout(holdTimer);clearInterval(holdInterval); }
+// Remember intent without activating on down: dragging away still cancels natively.
+// A pot may burn or be collected by the chef before the player's release.
+let potPresses = new WeakMap();
+function rememberPotPress(event) {
+  const button = event.target.closest('[data-action="pot"], [data-action="collect-pot"]');
+  if (event.type === 'keydown') {
+    if (!['Space','Enter'].includes(event.code)) return;
+    if (event.repeat) { if (button && event.code === 'Enter') event.preventDefault(); return; }
+  }
+  if (button && !button.disabled && active()) potPresses.set(button, {day:game.activeDay, pot:game.activeDay.pots[Number(button.dataset.index)]});
+}
+document.addEventListener('pointerdown', rememberPotPress);
+document.addEventListener('keydown', rememberPotPress);
+document.addEventListener('pointercancel', event => { const button = event.target.closest('[data-action="pot"], [data-action="collect-pot"]'); if (button) potPresses.delete(button); });
+window.addEventListener('blur', () => { potPresses = new WeakMap(); });
 document.addEventListener('pointerdown',event=>{const button=event.target.closest('[data-action="quantity"]');if(!button||button.disabled)return;stopHold();holdTimer=setTimeout(()=>{holdInterval=setInterval(()=>adjustQuantity(button.dataset.id,Number(button.dataset.delta)),85);},400);});
 for (const type of ['pointerup','pointercancel','blur']) window.addEventListener(type,stopHold);
 document.addEventListener('input',event=>{const input=event.target;if(input.dataset.quantity){const value=Math.min(99,Math.max(0,Math.trunc(Number(input.value)||0)));cart[input.dataset.quantity]=value;if(input.value!==''&&Number(input.value)!==value)input.value=value;updateCartQuote();}});
@@ -104,6 +204,12 @@ document.addEventListener('change',event=>{const key=event.target.dataset.settin
 document.addEventListener('click',event=>{
   const button=event.target.closest('[data-action]');if(!button||button.disabled)return;
   const {action,id}=button.dataset;
+  if (action === 'pot' || action === 'collect-pot') {
+    const press = potPresses.get(button); potPresses.delete(button);
+    if (press && (press.day !== game?.activeDay || press.pot !== game.activeDay.pots[Number(button.dataset.index)])) {
+      toast('Nồi đã thay đổi trong lúc nhấn. Chọn lại thao tác nhé.'); updatePlay(); return;
+    }
+  }
   if(action==='close-modal'){closeModal();return;} if(action==='new-game'){newGameModal();return;} if(action==='settings'){settingsModal();return;} if(action==='help'){helpStep=0;helpModal();return;} if(action==='help-next'){helpStep++;helpModal();return;} if(action==='help-prev'){helpStep--;helpModal();return;} if(action==='import'){importSave();return;}
   if(action==='create'){game=G.createGame($('#shop-name').value);game.settings={...preferences};challenge=null;cartDay=null;screen='prep';closeModal();persist();render();return;}
   if(!game)return;
@@ -124,7 +230,7 @@ document.addEventListener('click',event=>{
   if(action==='finish'){if(game.phase==='closing'){openModal('Đóng cửa ngay?',`<p>Còn ${game.activeDay.orders.length} khách. Đóng ngay sẽ tính các đơn còn lại là khách bỏ về.</p>`,'<button class="secondary" data-action="close-modal">Tiếp tục phục vụ</button><button class="primary" data-action="force-finish">Đóng ngay</button>');}else handleEnd(G.finishDay(game));return;}
   if(action==='force-finish'){closeModal();handleEnd(G.finishDay(game));return;}
   let result;
-  if(action==='bowl')result=G.takeBowl(game);if(action==='broth')result=G.addBroth(game,id);if(action==='topping')result=G.addTopping(game,id);if(action==='chili')result=G.addChili(game);if(action==='pot'){const index=Number(button.dataset.index);result=game.activeDay.pots[index]?G.collectPot(game,index):G.startPot(game,index);}if(action==='basket')result=G.collectBasket(game);if(action==='confirm-discard'){closeModal();result=G.discardBowl(game);}if(action==='serve')result=G.serveBowl(game,challenge?.random||Math.random);
+  if(action==='bowl')result=G.takeBowl(game);if(action==='broth')result=G.addBroth(game,id);if(action==='topping')result=G.addTopping(game,id);if(action==='chili')result=G.addChili(game);if(action==='pot'){const index=Number(button.dataset.index);result=game.activeDay.pots[index]?G.collectPot(game,index):G.startPot(game,index);}if(action==='collect-pot')result=G.collectPot(game,Number(button.dataset.index));if(action==='basket')result=G.collectBasket(game);if(action==='confirm-discard'){closeModal();result=G.discardBowl(game);}if(action==='serve')result=G.serveBowl(game,challenge?.random||Math.random);
   if(result){if(result.finished){handleEnd(result);return;}completed(result,{repaint:false,quiet:!['serve','confirm-discard'].includes(action)});updatePlay();showIncident();}
 });
 dialog.addEventListener('cancel',event=>{if(dialog.dataset.incident&&game?.activeDay?.pendingIncident){event.preventDefault();toast('Chọn cách xử lý để tiếp tục ca bán.');}previousTick=performance.now();});

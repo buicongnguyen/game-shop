@@ -50,6 +50,18 @@ The market, recipe and washing interfaces were reviewed against the side-game AP
 
 The browser runner writes screenshots and JSON results into `test-results/`. Delivery copies the current evidence into the requested folder's `test-results/parity-v2/` and verifies delivered file hashes against the tested staging files.
 
-## Limits
+## Mobile interaction follow-up — 2026-09-30
+
+The reported intermittent presses were reproducible: timer paints replaced pot, customer and delivery buttons between press and release. Instant automated clicks and focus restoration had missed this. In the new 16-case baseline, seven cases failed before repair. Interactive nodes now survive animation; only their labels, classes and gauge positions update. Bargaining restores keyboard focus when advancing to a new round.
+
+A press also remembers which pot it began on. If that pot burns or the chef changes its contents before release, the stale press is canceled rather than starting another batch or collecting different noodles. Native mouse drag-away and touch cancellation remain supported; no action fires merely on pointer-down.
+
+The mobile review retained the recognizable shop art, grouped cooking stations, visible stock and large Serve/market buttons. It corrected unreadable timing instructions, small menu/settings/close controls, long ingredient grids and landscape clipping. Touch controls are at least 44px where audited, numeric inputs use 16px text, and critical cooking labels use at least 11px. Swipeable ingredient palettes keep four customers and three pots on single rows. At 390px wide, the advanced game page fell from approximately 2161px to 1414px. A floating cooking panel appears when active pots are outside the visible kitchen, including a scrolled tablet pane.
+
+Real touch gestures exposed a landscape failure that `scrollIntoView()` concealed: before repair, three upward swipes left scrollY at zero and Serve offscreen near y=803; after repair, finger scrolling brought Serve into view. Tests now exercise native swipes, horizontal ingredient drags without accidental additions, floating pot collection, multiple pot widths, and held presses through running timers. Regression reports and screenshots are written under `test-results/` and excluded from Git. Device emulation covers phone portrait, phone landscape and tablet layouts; this is not evidence from physical devices.
+
+Follow-up validation: `npm test` passed **39/39**. After rebuilding, `npm run test:pages` passed **18/18** existing browser scenarios, **26/26** interaction regressions and **9/9** mobile layout checks against the compiled `/game-shop/` artifact. An independent code review also checked press intent, nested scroll clipping and test-runner failure handling.
+
+## Verification limits
 
 Automated local checks do not establish exact visual parity, original server behavior, balanced long-term economics under every player strategy, or exhaustive mobile/accessibility coverage. The remaining product differences are explicitly listed in [PARITY.md](PARITY.md). JSON saves remain player-controlled data; validation prevents malformed state from entering normal play, and does not function as an anti-cheat service.
