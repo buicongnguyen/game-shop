@@ -222,8 +222,9 @@ async function scenario(name, fixture, run, input) {
 
 async function hold(page, selector, input, duration) {
   const control=page.locator(selector);
-  await control.scrollIntoViewIfNeeded();
-  // Let scroll-triggered layout work reach the next frame before hit testing.
+  await scrollControlIntoView(control);
+  // Native scroll delivery uses the browser clock, while the app's scheduled
+  // animation frame uses the mocked clock. Advance that frame only after delivery.
   await page.clock.runFor(32);
   assert.equal(await control.isEnabled(), true, 'The tested control is enabled');
   if(input==='keyboard') {
@@ -231,7 +232,15 @@ async function hold(page, selector, input, duration) {
   }
   const box=await control.boundingBox();assert.ok(box);
   const x=box.x+box.width/2, y=box.y+box.height/2;
-  const hit=await control.evaluate((node,{x,y})=>{const target=document.elementFromPoint(x,y);return {correct:node.contains(target),target:target?.outerHTML.slice(0,250),scrollY,innerHeight,box:{x,y}}},{x,y});
+  const hit=await control.evaluate((node,{x,y})=>{
+    const target=document.elementFromPoint(x,y),pots=document.querySelector('#pots'),dock=document.querySelector('#mobile-cook-dock');
+    const bounds=element=>element?.getBoundingClientRect().toJSON(),clipping=[];
+    for(let parent=pots?.parentElement;parent&&parent!==document.body;parent=parent.parentElement) {
+      const overflowY=getComputedStyle(parent).overflowY;
+      if(/^(auto|scroll|hidden|clip)$/.test(overflowY))clipping.push({tag:parent.tagName,className:parent.className,overflowY,bounds:bounds(parent),clientHeight:parent.clientHeight,scrollTop:parent.scrollTop});
+    }
+    return {correct:node.contains(target),target:target?.outerHTML.slice(0,250),targetAction:target?.closest('[data-action]')?.dataset.action,scrollY,innerHeight,box:{x,y},control:bounds(node),pots:bounds(pots),dock:{hidden:dock?.hidden,bounds:bounds(dock)},viewport:visualViewport?{offsetTop:visualViewport.offsetTop,height:visualViewport.height,width:visualViewport.width}:null,clipping};
+  },{x,y});
   assert.equal(hit.correct, true, `The control receives input at its visible center: ${JSON.stringify(hit)}`);
   if(input==='touch') {
     const cdp=await page.context().newCDPSession(page);
@@ -241,6 +250,26 @@ async function hold(page, selector, input, duration) {
     await cdp.detach();
   } else {
     await page.mouse.move(x,y);await page.mouse.down();await page.clock.runFor(duration);await page.mouse.up();
+  }
+}
+async function scrollControlIntoView(control) {
+  const observation=await control.evaluateHandle(node=>{
+    const parents=[];for(let parent=node.parentElement;parent;parent=parent.parentElement)parents.push(parent);
+    const read=()=>[...parents.map(parent=>[parent.scrollLeft,parent.scrollTop]),[scrollX,scrollY]];
+    const state={before:JSON.stringify(read()),read,observed:false};
+    state.onScroll=()=>{state.observed=true;};document.addEventListener('scroll',state.onScroll,true);
+    return state;
+  });
+  try {
+    await control.scrollIntoViewIfNeeded();
+    const moved=await observation.evaluate(state=>state.before!==JSON.stringify(state.read()));
+    if(moved) {
+      const deadline=Date.now()+1000;
+      while(!await observation.evaluate(state=>state.observed)&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,16));
+      assert.equal(await observation.evaluate(state=>state.observed),true,'Browser delivered the native scroll event before advancing the mocked animation frame');
+    }
+  } finally {
+    await observation.evaluate(state=>document.removeEventListener('scroll',state.onScroll,true));await observation.dispose();
   }
 }
 async function saved(page) { return page.evaluate(key=>JSON.parse(localStorage.getItem(key)),G.SAVE_KEY); }

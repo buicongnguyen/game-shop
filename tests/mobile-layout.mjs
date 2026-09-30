@@ -111,20 +111,36 @@ try {
     });
     assert.ok((await bounds()).potBottom>(await bounds()).kitchenBottom,'The initial pot is clipped by the nested kitchen pane');
     await dock.waitFor({state:'visible'});
-    // Finger coordinates stay inside the kitchen. The document itself never moves.
-    const pan=async()=>{await swipe(client,{x:980,y:500},{x:980,y:220});await page.waitForTimeout(80);};
-    await pan();
+    // Aim using measured geometry. Chromium platforms differ in touch slop and
+    // fling distance, so fixed repeated swipes can skip the clipping boundary.
+    const panTo=async(measure,target,accept)=>{
+      for(let attempt=0;attempt<6;attempt++){
+        const position=await bounds(),current=await measure();
+        if(accept(current,position))return;
+        const delta=current.top-target(current,position),distance=Math.min(position.kitchenBottom-position.kitchenTop-70,Math.max(24,Math.abs(delta)));
+        const startY=delta>0?position.kitchenBottom-25:position.kitchenTop+25;
+        await swipe(client,{x:980,y:startY},{x:980,y:startY+(delta>0?-distance:distance)},180);
+        await page.waitForTimeout(35);
+      }
+      assert.fail(`Touch pans did not reach the required nested-pane position: ${JSON.stringify(await bounds())}`);
+    };
+    const potBounds=()=>page.locator('#pots').evaluate(node=>{const r=node.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height};});
+    await panTo(potBounds,(pot,pane)=>pane.kitchenTop+(pane.kitchenBottom-pane.kitchenTop-pot.height)/2,
+      (pot,pane)=>pot.top>=pane.kitchenTop+10&&pot.bottom<=pane.kitchenBottom-10);
     let position=await bounds();
     assert.ok(position.scroll>100&&position.windowScroll===0,'Touch gesture scrolls the kitchen rather than the document');
     assert.ok(position.potTop>=position.kitchenTop&&position.potBottom<=position.kitchenBottom,'The main pot now fits inside its pane');
     await dock.waitFor({state:'hidden'});
-    await pan();
+    await panTo(potBounds,(_pot,pane)=>Math.max(12,pane.kitchenTop/2),
+      (pot,pane)=>pot.top>=8&&pot.top<pane.kitchenTop-8&&pot.bottom<768);
     position=await bounds();
     assert.ok(position.potTop>=0&&position.potBottom<768,'Pot coordinates still lie inside the browser viewport');
     assert.ok(position.potTop<position.kitchenTop,'But the pane clips the pot from above');
     await dock.waitFor({state:'visible'});
     await page.screenshot({path:`${output}/1024-clipped-pot-dock.png`});
-    await pan();
+    await panTo(()=>page.locator('[data-action="serve"]').evaluate(node=>{const r=node.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height};}),
+      (serve,pane)=>pane.kitchenBottom-serve.height-25,
+      (serve,pane)=>serve.top>=pane.kitchenTop+8&&serve.bottom<=pane.kitchenBottom-8);
     const serve=page.locator('[data-action="serve"]'),serveBox=await serve.boundingBox(),dockBox=await dock.boundingBox();
     position=await bounds();
     assert.ok(serveBox.y>=position.kitchenTop&&serveBox.y+serveBox.height<=position.kitchenBottom,'Kitchen bottom remains reachable while pots run');
@@ -178,12 +194,15 @@ async function noOverflow(page) {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal page overflow');
 }
 
-async function swipe(client, from, to) {
+async function swipe(client, from, to, pauseBeforeLift=0) {
   await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[from]});
   for (let step=1;step<=8;step++) {
     await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:from.x+(to.x-from.x)*step/8,y:from.y+(to.y-from.y)*step/8}]});
     await new Promise(resolve => setTimeout(resolve,25));
   }
+  // A stationary finger before lifting prevents a kinetic fling from obscuring
+  // the exact clipping edge that the nested-pane regression needs to inspect.
+  if(pauseBeforeLift)await new Promise(resolve=>setTimeout(resolve,pauseBeforeLift));
   await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
 }
 
