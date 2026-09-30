@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" fill="none">
+ <defs><linearGradient id="bowl" x1="120" y1="112" x2="120" y2="201" gradientUnits="userSpaceOnUse"><stop stop-color="#ff7560"/><stop offset="1" stop-color="#dc3d3e"/></linearGradient></defs>
+ <ellipse cx="119" cy="211" rx="90" ry="12" fill="#662f32" opacity=".1"/>
+ <g stroke="#6c2e36" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+ <path d="M179 124 207 35m-14 89 28-89" stroke="#935737" stroke-width="6"/>
+ <path d="m203 47 4-12m10 12 4-12" stroke="#edb67e" stroke-width="4"/>
+ <path d="M30 131c8 52 36 73 91 73 54 0 81-22 89-73" fill="url(#bowl)"/>
+ <ellipse cx="120" cy="131" rx="92" ry="30" fill="#fff2d4"/>
+ <ellipse cx="120" cy="133" rx="80" ry="22" fill="#ec9b3d" stroke="#c98036" stroke-width="2"/>
+ <path d="M55 134c6-16 17 14 26 0s18 12 27-1 17 13 27-1 19 14 29 0 17 1 21-3m-117 15c7-13 17 8 26-2s17 10 27-1 18 8 27-2" stroke="#ffdf6a" stroke-width="5"/>
+ <path d="M129 122c-10-9-1-35 17-40 18-6 35 6 38 20 5 22-37 35-55 20Z" fill="#fff7df" stroke="#c6925e" stroke-width="2.5"/>
+ <ellipse cx="158" cy="109" rx="13" ry="12" transform="rotate(-20 158 109)" fill="#ffc644" stroke="#efac37" stroke-width="2"/>
+ <path d="M58 119c-18 1-24-16-13-23 7-6 16 0 18 5-7-13-1-27 11-24 9 1 13 11 11 21 5-10 15-13 22-5 12 13-4 28-25 29" fill="#79b95c" stroke="#497b3b" stroke-width="3"/>
+ <path d="M64 116 73 93m-4 10 12 4" stroke="#b8d978" stroke-width="3"/>
+ <path d="M113 126c-7-16-9-24 0-29 9-4 16 2 16 12 0 14-11 25-24 27l8-10Z" fill="#ed5143" stroke="#a64632" stroke-width="2.5"/>
+ <path d="M118 97c-1-7 2-11 7-12" stroke="#5b903f" stroke-width="4"/>
+ <path d="M81 177c21 10 56 11 80 0" stroke="#ffb796" stroke-width="4"/>
+ <path d="M86 205h68" stroke="#793b39" stroke-width="5"/>
+ </g>
+ <path d="M76 63c-15-19 12-21 0-40m31 45c-16-18 13-23 0-43m32 37c-13-16 11-19 1-34" stroke="#dba784" stroke-width="5" stroke-linecap="round" opacity=".65"/>
+ <path d="m33 60 3 8 8 3-8 3-3 8-3-8-8-3 8-3 3-8Z" fill="#f7c948"/>
+</svg>

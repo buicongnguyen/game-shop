@@ -1,0 +1,18 @@
+{
+  "name": "tiem-mi-cay-local",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An independently implemented, locally playable Vietnamese noodle-shop management game.",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "test": "node --test tests/game.test.js tests/sidequests.test.js",
+    "test:browser": "node tools/run-browser.mjs",
+    "test:pages": "node tools/run-pages.mjs",
+    "test:audit": "node tools/run-browser.mjs",
+    "test:simulation": "node tests/simulation.mjs",
+    "build": "node tools/build.mjs"
+  },
+  "devDependencies": { "playwright": "1.61.1" }
+}
