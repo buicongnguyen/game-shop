@@ -23,9 +23,9 @@ Use the HTTP server, rather than opening `index.html` as a file. `npm run build`
 - The catalog contains 32 ingredients, 20 equipment/accessory upgrades, 6 staff members, 13 decorations and 10 progression levels. Ingredients have individual purchase/sale prices, unlock costs and expiry dates.
 - Read each customer's broth, toppings and spice request. Taking a bowl, starting noodles and adding ingredients immediately consumes stock. Already-added ingredients cannot be removed or refunded.
 - Noodles cook for 5.2 seconds, or 4.2 with the stove. Collect between 50% and 78% for ideal doneness. Raw/soft noodles can be served at a rating penalty; unattended noodles burn. Extra pots and staff enable parallel cooking.
-- On phones, swipe the ingredient palettes to reach more choices. When cooking pots scroll out of view, a compact panel keeps their timers, collection buttons and selected recipe within reach. Landscape screens support normal finger scrolling.
+- The service screen always fits the display. Phones use one column, phones on their side two columns, and PCs and tablets in landscape three columns: customers and order, cooking station, pantry. Customers, the order ticket, pots, chili, discard, Serve and the day tools are never scrolled away; only the ingredient pantry scrolls when a small screen cannot show every ingredient at once. The order ticket ticks off the broth, toppings and spice level that the bowl already matches.
 - Each chili tap adds one level, up to 7. A finished bowl matches any suitable waiting order, including another unfinished dish in a group. A true mismatch wastes the bowl and upsets the selected customer.
-- Customers arrive over a 210-second day. New arrivals stop near closing, then existing orders have up to 60 additional seconds. Closing again can end immediately. Prices, reputation, events and equipment influence trade.
+- Customers arrive over a 210-second day. New arrivals stop near closing, then existing orders have up to 60 additional seconds. Closing early asks for confirmation, and closing again during the grace period ends immediately. Prices, reputation, events and equipment influence trade.
 - Stock expires by batch. End-of-day accounts include full rent, utilities, equipment electricity and staff wages; cash can become negative. Loan repayments separate principal and interest. Three daily goals award cash and XP.
 - Review filters and replies, equipment, staff hiring/dismissal, visible decorations, emergency restocking and stockout remedies are available from management and service screens.
 - Optional market bargaining, secret-broth memory play and bowl washing add daily activities. A seeded daily challenge runs separately and keeps the main shop intact. Its records are local to this browser.
@@ -50,7 +50,7 @@ The browser runner starts and closes its own local test server. Tests cover engi
 
 `npm run test:pages` serves only the compiled `dist/` directory beneath `/game-shop/` and runs the full browser suite there. Requests that accidentally target the host root fail this check.
 
-Both browser commands include held mouse/touch/keyboard presses while timers advance, canceled gestures, pot expiry and chef transitions, plus mobile finger scrolling and ingredient swipes. The tests use browser device emulation; physical iOS/Android hardware was not tested.
+Both browser commands include held mouse/touch/keyboard presses while timers advance, canceled gestures, pot expiry and chef transitions. Layout checks cover phones (320×568 to 390×844), a phone on its side (844×390), tablets (768×1024, 1024×768) and PCs (1280×720 to 1920×1080): every cooking control must be visible and touchable without scrolling, touch targets stay at least 44px, real finger swipes scroll the pantry without adding ingredients, and every dialog keeps its close and action buttons on screen. The tests use browser device emulation; physical iOS/Android hardware was not tested.
 
 ## GitHub Pages deployment
 
@@ -60,13 +60,13 @@ GitHub Pages and localhost have separate browser storage. Export a save from the
 
 ## Scope and files
 
-This project has its own code and artwork. It does not use the reference game's source, assets, account system or backend at runtime. It runs locally with no external requests. Online leaderboards, cloud accounts and real-player competition are not connected; remaining offline approximations are listed in [PARITY.md](PARITY.md). Blender and Unity were unnecessary for this 2D browser interface; editable SVGs provide the required art.
+This project has its own code and artwork. It does not use the reference game's source, assets, account system or backend at runtime. It runs locally with no external requests. Online leaderboards, cloud accounts and real-player competition are not connected; remaining offline approximations are listed in [PARITY.md](PARITY.md). Blender and Unity are unnecessary for this 2D browser interface: editable SVGs stay sharp on every screen, weigh about 1 KB per ingredient and take the chosen awning colour. The bowl and cooking pots are drawn from game state, so the bowl shows its real broth, noodles, toppings and chili.
 
 - `src/game.js`: state, cooking, customers, economy, persistence and validation.
 - `src/catalog.js`: factual ingredient/equipment/staff/decoration configuration.
 - `src/sidequests.js`: optional daily mini-game state and rules.
 - `src/app.js`, `src/minigames-ui.js`, `src/ui.js`: interface and controls.
-- `src/style.css`, `src/parity.css`, `src/mobile.css`: layout, appearance and responsive behavior.
+- `src/style.css`: layout, appearance and responsive behavior for phones, tablets and PCs in one stylesheet.
 - `public/assets/`: original illustrations, local fonts and font licenses.
 - `server.mjs`, `tools/`: local server, build and verification runner.
 - `reference-values.md`: observed rules used for the independent implementation.

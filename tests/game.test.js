@@ -156,6 +156,31 @@ test('v1 migrates cash, progress and active orders, preserves backup, and reject
   old.activeDay.orders.push(structuredClone(old.activeDay.orders[0])); assert.equal(restore(old), null);
 });
 
+test('v1 saves taken mid-day with a waiting first customer still migrate', () => {
+  const old = { version: 1, name: 'Tiệm mới', money: 200000, day: 1, reputation: 4, inventory: { noodles: 5, broth: 5, beef: 5, seafood: 0, mushroom: 0, greens: 0, egg: 0, kimchi: 0 }, upgrades: {}, staff: {}, stats: { served: 0, revenue: 0, expenses: 0, lost: 0, daysPlayed: 0, bestDay: 0 }, settings: {}, pendingExpenses: 0, reviews: [], history: [], phase: 'open', nextOrderId: 2, activeDay: { remaining: 190, served: 0, revenue: 0, expenses: 0, lost: 0, customers: 1, orders: [{ id: 'day-1-order-1', name: 'An', recipeId: 'beef', spice: 1, price: 40000, patience: 30, maxPatience: 35 }] } };
+  const migrated = restore(old); assert.ok(migrated, 'A waiting customer counts as a visitor');
+  assert.equal(migrated.stats.customers, 1); assert.equal(migrated.activeDay.orders.length, 1); assert.deepEqual(restore(migrated), migrated);
+});
+
+test('topping helper only completes a bowl that still matches the selected order', () => {
+  const state = g.createGame('Tiệm phụ bếp'); state.xp = 8000; state.money = 5000000; state.unlocked = g.INGREDIENTS.map(item => item.id);
+  assert.equal(g.buyCart(state, Object.fromEntries(state.unlocked.map(id => [id, 10]))).ok, true);
+  assert.equal(g.hireStaff(state, 'topping').ok, true); assert.equal(g.beginDay(state).ok, true);
+  const first = orderFor(state), second = orderFor(state);
+  for (const [order, topping] of [[first, 'beef'], [second, 'sausage']]) { order.broth = 'kimchi'; order.toppings = [topping]; order.dishes = [{ broth: 'kimchi', toppings: [topping], spice: order.spice, price: order.price }]; }
+  g.selectOrder(state, first.id); assert.equal(g.takeBowl(state).ok, true); assert.equal(g.addBroth(state, 'kimchi').ok, true);
+  g.tickDay(state, .1, constant); assert.deepEqual(state.activeDay.bowl.toppings, ['beef'], 'The helper completes the selected order');
+  const sausage = state.inventory.sausage; g.selectOrder(state, second.id); g.tickDay(state, .1, constant);
+  assert.deepEqual(state.activeDay.bowl.toppings, ['beef'], 'Selecting another customer must not add their toppings to this bowl');
+  assert.equal(state.inventory.sausage, sausage, 'No stock is spent on a bowl nobody ordered');
+});
+
+test('weekday events never label a weekend and the spice challenge starts at stage two', () => {
+  const state = g.createGame('Tiệm lịch'), events = level => { state.xp = level === 1 ? 0 : 8000; return Array.from({ length: 200 }, (_, i) => { state.day = i + 3; return [state.day, g.dayEvent(state).id]; }); };
+  for (const [day, id] of events(1)) { assert.notEqual(id, 'challenge', `Level 1 day ${day}`); if (day % 7 !== 0 && day % 7 !== 6) assert.notEqual(id, 'weekend', `Weekday ${day}`); }
+  assert.ok(events(10).some(([, id]) => id === 'challenge'), 'Challenge days appear from stage two');
+});
+
 test('random callback failure does not consume an order ID or mutate game state', () => {
   const state = opened(), before = JSON.stringify(state); let calls = 0;
   const result = g.createOrder(state, () => { if (++calls === 2) throw Error('rng'); return .5; }); assert.equal(result.ok, false); assert.equal(JSON.stringify(state), before);

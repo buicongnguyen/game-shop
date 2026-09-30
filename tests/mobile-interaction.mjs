@@ -69,29 +69,28 @@ try {
     }, input);
   }
 
+  // The service screen fits the phone, so the pot is reachable where it is: no dock, no scrolling.
   for (const cancel of [false, true]) {
-    await scenario(`touch-floating-pot-${cancel?'cancel':'collect'}`, openFixture({cooking:true}), async page => {
+    await scenario(`touch-small-phone-pot-${cancel?'cancel':'collect'}-without-scrolling`, openFixture({cooking:true}), async page => {
       await page.setViewportSize({width:390,height:667});
       await page.evaluate(()=>window.scrollTo(0,0));await page.clock.runFor(32);
-      const control=page.locator('[data-action="collect-pot"][data-index="0"]');
-      assert.equal(await control.isVisible(), true, 'Small phones keep an offscreen cooking pot reachable in the dock');
-      const main=await page.locator('#pots').boundingBox();assert.ok(main&&main.y+main.height>667, 'The main pot is below the visible screen');
+      const pot=page.locator('[data-action="pot"][data-index="0"]'), box=await pot.boundingBox();
+      assert.ok(box&&box.y>=0&&box.y+box.height<=667, 'The cooking pot is on a small phone screen without scrolling');
+      assert.equal(await page.evaluate(()=>scrollY), 0, 'No page scroll is needed to reach the pot');
       const before=await saved(page);
       if(cancel) {
-        const box=await control.boundingBox();assert.ok(box);
         const cdp=await page.context().newCDPSession(page);
         await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:box.x+box.width/2,y:box.y+box.height/2,id:1}]});
         await page.clock.runFor(400);
         await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await cdp.detach();
         const cancelled=await saved(page);assert.equal(cancelled.activeDay.bowl.noodles,null);
-        assert.ok(cancelled.activeDay.pots[0],'Cancelling a dock tap cannot collect');
-        await control.tap();
-      } else await hold(page,'[data-action="collect-pot"][data-index="0"]','touch',400);
+        assert.ok(cancelled.activeDay.pots[0],'Cancelling a tap cannot collect');
+        await pot.tap();
+      } else await hold(page,'[data-action="pot"][data-index="0"]','touch',400);
       const after=await saved(page);
-      assert.equal(after.activeDay.bowl.noodles,'cooked','The dock collects the intended cooking pot');
+      assert.equal(after.activeDay.bowl.noodles,'cooked','The pot collects the intended noodles');
       assert.equal(after.activeDay.pots[0],null);
-      assert.equal(after.inventory.noodles,before.inventory.noodles,'The dock never starts an extra pot');
-      assert.equal(await page.locator('#mobile-cook-dock').isVisible(),false,'An empty dock disappears');
+      assert.equal(after.inventory.noodles,before.inventory.noodles,'Collecting never starts an extra pot');
     },'touch');
   }
 
@@ -107,19 +106,16 @@ try {
     },input);
   }
 
-  await scenario('tablet-nested-kitchen-clipping-shows-dock',openFixture({cooking:true}),async page=>{
+  await scenario('tablet-landscape-pots-and-serve-on-one-screen',openFixture({cooking:true}),async page=>{
     await page.setViewportSize({width:1024,height:768});await page.clock.runFor(32);
-    const clipped=await page.evaluate(()=>{
-      const kitchen=document.querySelector('.kitchen'),pots=document.querySelector('#pots');
-      kitchen.scrollTop+=pots.getBoundingClientRect().top-kitchen.getBoundingClientRect().top+20;
-      const area=kitchen.getBoundingClientRect(),row=pots.getBoundingClientRect();
-      return {canScroll:kitchen.scrollHeight>kitchen.clientHeight,potTop:row.top,potBottom:row.bottom,clipTop:area.top,viewportHeight:innerHeight};
-    });
-    assert.ok(clipped.canScroll&&clipped.potTop>0&&clipped.potBottom<clipped.viewportHeight&&clipped.potTop<clipped.clipTop,'The pot is inside the window but clipped by the kitchen pane');
-    await page.clock.runFor(200);
-    assert.equal(await page.locator('#mobile-cook-dock').isVisible(),true,'A clipped pot remains accessible on a touch tablet');
-    await hold(page,'[data-action="collect-pot"][data-index="0"]','touch',400);
-    assert.equal((await saved(page)).activeDay.bowl.noodles,'cooked','The tablet dock still accepts a held touch');
+    const rows=await page.evaluate(()=>['#pots','#take-bowl','[data-action="chili"]','[data-action="serve"]','[data-action="finish"]'].map(selector=>{
+      const node=document.querySelector(selector),r=node.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+      return {selector,visible:r.top>=0&&r.bottom<=innerHeight&&node.contains(hit)};
+    }));
+    for(const row of rows) assert.ok(row.visible,`${row.selector} is visible and touchable without scrolling on a landscape tablet`);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),true,'The service screen fits the tablet');
+    await hold(page,'[data-action="pot"][data-index="0"]','touch',400);
+    assert.equal((await saved(page)).activeDay.bowl.noodles,'cooked','A held touch on the tablet collects the pot');
   },'touch');
 
   await scenario('keyboard-enter-repeat-does-not-collect-new-pot',openFixture({emptyBowl:true}),async page=>{
@@ -233,13 +229,13 @@ async function hold(page, selector, input, duration) {
   const box=await control.boundingBox();assert.ok(box);
   const x=box.x+box.width/2, y=box.y+box.height/2;
   const hit=await control.evaluate((node,{x,y})=>{
-    const target=document.elementFromPoint(x,y),pots=document.querySelector('#pots'),dock=document.querySelector('#mobile-cook-dock');
+    const target=document.elementFromPoint(x,y),pots=document.querySelector('#pots');
     const bounds=element=>element?.getBoundingClientRect().toJSON(),clipping=[];
     for(let parent=pots?.parentElement;parent&&parent!==document.body;parent=parent.parentElement) {
       const overflowY=getComputedStyle(parent).overflowY;
       if(/^(auto|scroll|hidden|clip)$/.test(overflowY))clipping.push({tag:parent.tagName,className:parent.className,overflowY,bounds:bounds(parent),clientHeight:parent.clientHeight,scrollTop:parent.scrollTop});
     }
-    return {correct:node.contains(target),target:target?.outerHTML.slice(0,250),targetAction:target?.closest('[data-action]')?.dataset.action,scrollY,innerHeight,box:{x,y},control:bounds(node),pots:bounds(pots),dock:{hidden:dock?.hidden,bounds:bounds(dock)},viewport:visualViewport?{offsetTop:visualViewport.offsetTop,height:visualViewport.height,width:visualViewport.width}:null,clipping};
+    return {correct:node.contains(target),target:target?.outerHTML.slice(0,250),targetAction:target?.closest('[data-action]')?.dataset.action,scrollY,innerHeight,box:{x,y},control:bounds(node),pots:bounds(pots),viewport:visualViewport?{offsetTop:visualViewport.offsetTop,height:visualViewport.height,width:visualViewport.width}:null,clipping};
   },{x,y});
   assert.equal(hit.correct, true, `The control receives input at its visible center: ${JSON.stringify(hit)}`);
   if(input==='touch') {

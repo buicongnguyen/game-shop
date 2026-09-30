@@ -55,7 +55,8 @@ try {
     assert.ok(served.money>before.money);assert.equal(served.inventory.bowls,before.inventory.bowls-1);assert.equal(served.inventory.noodles,before.inventory.noodles-1);
     assert.equal(served.activeDay.bowl.started,false);
     await page.screenshot({path:'test-results/parity-service-desktop.png',fullPage:true,animations:'disabled'});
-    await click(page,'finish');const ended=await save(page);
+    await click(page,'finish');assert.equal((await save(page)).phase,'open','Closing early asks for confirmation first');
+    await click(page,'force-finish');const ended=await save(page);
     assert.equal(ended.day,2);assert.equal(ended.phase,'prep');assert.equal(ended.history.length,1);
     assert.equal(ended.lastDay.served,1);assert.equal(ended.money,served.money-G.dailyOperatingCost(served).total);
   });
@@ -69,7 +70,7 @@ try {
     const beforeDiscard=await save(page);await click(page,'discard');await click(page,'confirm-discard');const discarded=await save(page);
     assert.equal(discarded.inventory.beef,beforeDiscard.inventory.beef);assert.equal(discarded.inventory.bowls,beforeDiscard.inventory.bowls);
     assert.equal(discarded.stats.waste,beforeDiscard.stats.waste+beforeDiscard.activeDay.bowl.cost);
-    await click(page,'finish');assert.equal((await save(page)).phase,'closing');
+    await click(page,'finish');await click(page,'force-finish');assert.equal((await save(page)).phase,'closing');
     await page.clock.runFor(61000);const ended=await save(page);assert.equal(ended.phase,'prep');assert.equal(ended.day,2);assert.equal(ended.lastDay.lost,1);
   },{fixture:openFixture()});
 
@@ -136,7 +137,7 @@ try {
     const challengeOrder=await orderFromUI(page);await assemble(page,challengeOrder);await click(page,'serve');
     const rating=Number(await page.locator('[data-value="reputation"]').textContent());
     assert.deepEqual(await save(page),main,'Challenge ingredient consumption and service leave the main save intact');
-    await click(page,'finish');
+    await click(page,'finish');await click(page,'force-finish');
     assert.deepEqual(await save(page),main,'Ending the challenge restores all main-shop state');
     assert.match(await page.locator('#dialog-title').textContent(),/thử thách hoàn thành/);
     const records=await page.evaluate(()=>JSON.parse(localStorage.getItem('tiem-mi-cay-records-v2')));assert.equal(records.length,1);assert.equal(records[0].date,'2026-09-30');assert.equal(records[0].name,main.name);
@@ -193,7 +194,7 @@ try {
     const button=await page.locator('[data-action="incident"][data-id="ignore"]').elementHandle();await button.evaluate(node=>{node.click();node.click();});
     const resolved=await save(page);assert.equal(resolved.activeDay.pendingIncident,null);assert.equal(resolved.money,before.money-pending.bill);assert.equal(resolved.stats.expenses,before.stats.expenses+pending.bill);
     assert.equal(await page.locator('dialog').evaluate(d=>d.open),false);await page.clock.runFor(2200);assert.ok((await save(page)).activeDay.remaining<before.activeDay.remaining,'Service resumes after resolution');
-    await click(page,'finish');assert.equal((await save(page)).phase,'closing');await page.clock.runFor(61000);
+    await click(page,'finish');await click(page,'force-finish');assert.equal((await save(page)).phase,'closing');await page.clock.runFor(61000);
     const ended=await save(page);assert.equal(ended.phase,'prep');assert.equal(ended.day,3);assert.equal(ended.history.length,1);assert.equal(ended.lastDay.lost,1);
   },{fixture:incidentFixture(false)});
 

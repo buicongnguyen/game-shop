@@ -62,6 +62,45 @@ Real touch gestures exposed a landscape failure that `scrollIntoView()` conceale
 
 Follow-up validation: `npm test` passed **39/39**. After rebuilding, `npm run test:pages` passed **18/18** existing browser scenarios, **26/26** interaction regressions and **9/9** mobile layout checks against the compiled `/game-shop/` artifact. An independent code review also checked press intent, nested scroll clipping and test-runner failure handling.
 
+## Layout, art-fit and logic review — 2026-09-30 (second pass)
+
+**Findings before repair.** Screenshots and geometry probes at nine sizes (320×568 to 1920×1080, including 844×390 and 1024×768 touch) found these problems:
+- **Stylesheets:** three stacked stylesheets fought each other. Many rules targeted markup that no longer existed, and some labels were 6–9px.
+- **Service screen:** on common laptops (1280×720, 1366×768) the bowl, toppings, chili and Serve sat below the fold inside a nested scrolling pane. On a 1024×768 tablet the service columns were cut off mid-screen. On phones cooking needed about 1,600px of page scrolling, and a floating pot panel covered the order ticket on small screens.
+- **Dialogs:** at 1280×720, 1366×768, 1024×768, 360–320px phones and phone landscape, the goals, rush-restock, day-summary, help, settings, menu and mini-game dialogs scrolled as a whole. Their only buttons ended up off-screen, and goal progress bars were unstyled.
+- **Art fit:** the bowl image always showed a finished bowl with egg and greens, even when empty. All three plant decorations rendered the same leafy plant, and the dog, hamster and wind chime fell back to operating-system emoji. Decorations were clipped at pane edges, and the help illustrations could render at their natural 600px size.
+
+**Changes.** Visual and layout changes:
+- **One stylesheet:** `src/style.css` replaces all three with a single mobile-first design.
+- **Service layout:** one column on phones, two in landscape phones and short windows, three on tablets in landscape and PCs. The page never scrolls during service; only the ingredient pantry does, when a screen cannot show every ingredient.
+- **Dialogs:** a fixed header, a scrolling body and pinned actions. A dialog that re-renders itself keeps its scroll position and focus.
+- **Art:** the bowl and pots are drawn from game state (broth colour, noodle doneness, toppings, chili, pot stage). Five new original decoration SVGs were added.
+- **Order ticket:** it ticks off what the current bowl already matches.
+
+Logic fixes from an independent engine review. That review also ran a 1,000-run random-action save fuzzer over 9,721 settled days with no failures.
+- The topping helper no longer adds the newly selected customer's toppings to a bowl built for someone else.
+- Unlocking an ingredient through emergency restocking during service now adds its kitchen button immediately.
+- Closing early now asks for confirmation. Previously a single tap with nobody waiting ended the day and charged full overhead.
+- A version-1 save taken mid-day with a waiting customer now migrates. A save this version cannot read is copied to `tiem-mi-cay-local-v1-unreadable` before anything can overwrite it.
+- The day summary shows loan principal. Interest is already inside operating costs and was previously counted twice.
+- The daily challenge uses separate seeded streams for arrivals and service rolls, so everyone gets the same customers.
+- Weekday events can no longer be labelled "weekend", and the spice-challenge event starts at level 3 as in the reference.
+
+Reviewed but deliberately unchanged:
+- Loans can be taken at any cash level. Once both loans are used with no cash, the only exit is starting a new shop.
+- Progression speed matches the reference XP economy; slowing it is a tuning decision.
+
+**Evidence.**
+- `npm test`: **42/42**, including new regressions for the topping helper, event calendar and mid-day v1 migration.
+- `npm run test:simulation`: 100 days, 37,069 checks.
+- Parity browser suite: 18/18. It now confirms the early-close dialog.
+- Interaction suite: 26/26. Its floating-dock scenarios became "pot reachable without scrolling" on a 390×667 phone and a 1024×768 tablet.
+- Rewritten layout suite (19 checks), every service size: each cooking control is visible and touchable without scrolling, and touch targets are at least 44px.
+- Rewritten layout suite, interaction and dialogs: real finger swipes scroll the pantry without adding ingredients, the last topping is reachable by finger, and every dialog keeps its close and action buttons on screen.
+- Built artifact: after `npm run build`, `npm run test:pages` passed all three suites against the compiled `/game-shop/` site (18/18, 26/26, 19/19).
+- Stability: the layout suite then passed three consecutive runs.
+- Swipe helper: its swipes hold the finger still before lifting. A fling pushing against the end of the list otherwise leaves Chrome using the next tap to stop it, which real phones also do.
+
 ## Verification limits
 
 Automated local checks do not establish exact visual parity, original server behavior, balanced long-term economics under every player strategy, or exhaustive mobile/accessibility coverage. The remaining product differences are explicitly listed in [PARITY.md](PARITY.md). JSON saves remain player-controlled data; validation prevents malformed state from entering normal play, and does not function as an anti-cheat service.
