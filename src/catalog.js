@@ -72,6 +72,7 @@ export const UPGRADES = freezeRows([
   accessory('led', 'Bảng LED chạy chữ', 'Từ khoảng 17 giờ, lượng khách tăng 25%.', 400000, 5, '✨', { eveningTrafficBonus: .25 }),
   accessory('bowlset', 'Bộ tô sứ vẽ tay', 'Khách hài lòng tip thêm 3.000đ mỗi tô.', 600000, 6, '🥣'),
   accessory('kol', 'Mời người review ẩm thực', 'Lượng khách tăng 30%.', 1200000, 8, '📸', { trafficBonus: .30 }),
+  equipment('spaceport', 'Bến phi thuyền mini', 'Nhận đơn giao mì liên hành tinh: tự lái phi thuyền, canh nhiên liệu, né thiên thạch.', 2500000, 9, '🚀'),
 ]);
 
 export const STAFF = freezeRows([

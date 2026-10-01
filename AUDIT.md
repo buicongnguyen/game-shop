@@ -4,7 +4,7 @@ Audit date: 2026-09-30. Scope: the independently authored second implementation 
 
 ## Reference review
 
-The public reference HTML and delivered script were inspected read-only. Factual values, observable rules and source anchors are summarized in [reference-values.md](reference-values.md), with implementation coverage and gaps in [PARITY.md](PARITY.md). No interactive remote playthrough was performed for this audit. Public-source inspection establishes intended branches, not that every branch is reachable or works on the live server.
+The public reference HTML and delivered script were inspected read-only. Factual values, observable rules and source anchors are summarized in [reference-values.md](reference-values.md), with implementation coverage and gaps in [docs/PARITY.md](docs/PARITY.md). No interactive remote playthrough was performed for this audit. Public-source inspection establishes intended branches, not that every branch is reachable or works on the live server.
 
 ## Engine review
 
@@ -152,6 +152,65 @@ Two plausible issues were also changed:
 
 **Test note:** the 100-day simulation's revenue check now counts income booked for the morning after its last day.
 
+## Detail, the delivery ride and the starship — 2026-10-01 (fifth pass)
+
+**Evaluation of the request.**
+- **Detailed drawings:** the reference gives every object its own illustration (86 embedded pictures: per-broth pots, an idle or boiling noodle pot, toppings, customer and staff portraits, mascot moods, pets, mini-game sprites). Its scenes are composed from them. That mechanism was copied, and every picture was drawn from scratch.
+- **Starship to other planets:** this does not exist in the reference. It was built as an optional late-game extension of the reference's far-delivery scooter ride (which was missing here), sharing one engine.
+
+**Work.**
+- **Original art generators:**
+  - characters with moods;
+  - redrawn ingredient icons;
+  - per-broth pots, a noodle pot with a flame, and the bowl drawn from its contents;
+  - a shop scene layered from decorations and upgrades;
+  - a time-of-day street and a doodle background;
+  - the two canvas mini-games.
+- **Reference rules for far deliveries:**
+  - at most 2 a day, 20% of app orders (30% in rain), ×1.25 patience;
+  - ride, or hire a courier for 15,000₫;
+  - three lanes over 4,500 units; a hit means 0.9 s invulnerability and 0.8 s slow;
+  - bonus 20k/10k/0 and stars +1/0/−1.
+- **Starship rules:**
+  - five planets with their own hazards, fuel loads and canisters;
+  - emergency thrusters when the tank runs dry;
+  - tiers that pay a bonus and move stars.
+- **Side-by-side check against the reference** at 430×932 and 1366×768. It led to four changes:
+  - the prep layout now matches (large shop picture on the left; bargaining with the vendor and today's goals at the top of the stock tab);
+  - locked items show greyed with a padlock;
+  - a tutorial spotlight with the tip card beside the target;
+  - a chili-sauce bottle.
+
+**Bug found and fixed while testing:** the planet-order scheduling had been inserted between an `if` and its `else if`, which would have switched off street stories for spaceport owners. A regression test now covers it.
+
+**Performance** (the `lightweight-game-objects` measuring method). This is the service screen at 390×844, DPR 2, with the CPU slowed 4×, timed by a browser trace, in milliseconds of work per second (median of 3 interleaved runs):
+
+| Work | Previous build | After the first integration | Final |
+| --- | --- | --- | --- |
+| Paint | 15.5 | 27.4 | 14.7 |
+| Raster | 105 | 51.3 | 72.1 |
+| Style and layout | 18.6 | 37.7 | 17.9 |
+| Script | 11.4 | 12.3 | 10.8 |
+
+The middle column was measured in an earlier trace session, whose previous-build baseline came out at 17.8 / 39.7 / 24.1 / 11.5. The other two columns come from the same session.
+
+What fixed it:
+- the street drawing is static, on its own compositor layer;
+- rain is a GPU-moved overlay;
+- static pictures (faces, the street, the ticket bowl) are drawn as cached images instead of thousands of inline SVG nodes;
+- CSS containment.
+
+**Evidence.**
+- `npm test`: **154/154**, including:
+  - `delivery.test.js`;
+  - `ride.test.js`;
+  - `art-people.test.js`, `art-bowl.test.js` and `art-scene.test.js`.
+- 100-day simulation: 178 rides and 51 flights settled, with every cash, stock and save-round-trip invariant passing.
+- Browser:
+  - the parity suite passes **20/20**, including a ride to the finish and a flight from fuel choice to docking;
+  - interaction 26/26;
+  - layout 19/19.
+
 ## Verification limits
 
-Automated local checks do not establish exact visual parity, original server behavior, balanced long-term economics under every player strategy, or exhaustive mobile/accessibility coverage. The remaining product differences are explicitly listed in [PARITY.md](PARITY.md). JSON saves remain player-controlled data; validation prevents malformed state from entering normal play, and does not function as an anti-cheat service.
+Automated local checks do not establish exact visual parity, original server behavior, balanced long-term economics under every player strategy, or exhaustive mobile/accessibility coverage. The remaining product differences are explicitly listed in [docs/PARITY.md](docs/PARITY.md). JSON saves remain player-controlled data; validation prevents malformed state from entering normal play, and does not function as an anti-cheat service.

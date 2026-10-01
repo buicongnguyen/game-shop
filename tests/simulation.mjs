@@ -63,7 +63,11 @@ for (let day = 1; day <= 100; day++) {
       // Payment incidents keep fixed answers; stories and haggles rotate through every choice so all outcomes run.
       const incident = state.activeDay.pendingIncident, rotate = incident.options[(state.day + Number(incident.id.split('-').at(-1))) % incident.options.length].id;
       const action = incident.type === 'dash' ? 'chase' : incident.type === 'money' ? incident.overpaid ? 'return' : 'remind' : incident.type === 'debt' ? 'allow' : incident.type === 'hair' ? 'topup' : rotate;
-      const result = g.resolveIncident(state, action, random); assert.equal(result.ok, true, `${incident.type}/${incident.story ?? ''} → ${action}: ${result.message}`); situations[incident.type === 'story' ? incident.story : incident.type] = (situations[incident.type === 'story' ? incident.story : incident.type] || 0) + 1; verify(); continue;
+      // Trips alternate between doing the delivery (with a varying number of hits) and paying someone else.
+      const turn = state.day + Number(incident.id.split('-').at(-1));
+      const result = incident.type === 'ride' ? (turn % 3 ? g.finishRide(state, { hits: turn % 4 }) : g.resolveIncident(state, 'hire'))
+        : incident.type === 'flight' ? (turn % 3 ? g.finishFlight(state, { fuel: ['half', 'most', 'full'][turn % 3], hits: turn % 4, ranOut: turn % 5 === 0 }) : g.resolveIncident(state, 'drone'))
+        : g.resolveIncident(state, action, random); assert.equal(result.ok, true, `${incident.type}/${incident.story ?? ''} → ${action}: ${result.message}`); situations[incident.type === 'story' ? incident.story : incident.type] = (situations[incident.type === 'story' ? incident.story : incident.type] || 0) + 1; verify(); continue;
     }
     if (!state.activeDay.orders.length) { tick(.5); continue; }
     const order = [...state.activeDay.orders].sort((a, b) => a.patience - b.patience)[0];

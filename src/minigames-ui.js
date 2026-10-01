@@ -1,5 +1,8 @@
 import * as S from './sidequests.js';
 import { esc } from './ui.js';
+import { staffFace } from './art/people.js';
+// The market vendor (an original character) reacts to each bargaining round.
+const vendor = (line, mood = 'happy') => `<div class="market-vendor">${staffFace('market', { mood, idPrefix: `market-${mood}-` })}<p class="vendor-bubble" id="vendor-bubble">${line}</p></div>`;
 
 // Optional games use the same dialog and save as management, without running the shop clock.
 function session(context, rootId, onLeave) {
@@ -19,12 +22,12 @@ export function showBargaining(context) {
   function paintRound() {
     round=S.bargainingRound(game);phase=0;position=0;
     if(!round){run.stop();dialog.querySelector('#market-game').innerHTML=`<div class="mini-result">🧺<h3>Giảm ${Math.round(S.marketDiscount(game)*100)}% hôm nay!</h3></div><p>Ưu đãi áp dụng cho nguyên liệu nhập thường và nhập gấp của hôm nay.</p>`;persist();render();return;}
-    dialog.querySelector('#market-game').innerHTML=`<p>Lượt ${round.index+1}/3 · Dừng kim ở vùng xanh +5%, vàng +2%. Tối đa giảm 15% trong ngày.</p><div class="bargain-gauge" aria-label="Vùng trả giá"><span class="bargain-yellow" style="left:${round.yellowStart*100}%;width:${(round.yellowEnd-round.yellowStart)*100}%"></span><span class="bargain-green" style="left:${round.greenStart*100}%;width:${(round.greenEnd-round.greenStart)*100}%"></span><i id="market-needle"></i></div><button class="primary" id="market-stop">Chốt!</button><p id="market-result">Đã giảm ${Math.round(S.marketDiscount(game)*100)}%</p>`;
+    dialog.querySelector('#market-game').innerHTML=`${vendor(round.index?'Thêm lượt nữa nè, canh cho đúng nha con.':'Rau củ sáng nay tươi rói. Trả giá khéo thì cô Sáu bớt cho!')}<p>Lượt ${round.index+1}/3 · Dừng kim ở vùng xanh +5%, vàng +2%. Tối đa giảm 15% trong ngày.</p><div class="bargain-gauge" aria-label="Vùng trả giá"><span class="bargain-yellow" style="left:${round.yellowStart*100}%;width:${(round.yellowEnd-round.yellowStart)*100}%"></span><span class="bargain-green" style="left:${round.greenStart*100}%;width:${(round.greenEnd-round.greenStart)*100}%"></span><i id="market-needle"></i></div><button class="primary" id="market-stop">Chốt!</button><p id="market-result">Đã giảm ${Math.round(S.marketDiscount(game)*100)}%</p>`;
     dialog.querySelector('#market-stop').onclick=()=>{run.stop();const result=S.stopBargaining(game,position);persist();soundFeedback(result);dialog.querySelector('#market-result').textContent=`${result.award?`Tốt lắm! +${Math.round(result.award*100)}%`:'Hụt rồi!'} · Tổng giảm ${Math.round(result.discount*100)}%`;const next=dialog.querySelector('#market-stop');next.textContent=result.done?'Xem giá đã chốt':'Lượt tiếp →';next.onclick=paintRound;};
     dialog.querySelector('#market-stop').focus({preventScroll:true});
     run.start(delta=>{phase=(phase+delta*round.speed)%2;position=phase<=1?phase:2-phase;const needle=dialog.querySelector('#market-needle');if(needle)needle.style.left=`${position*100}%`;});
   }
-  function soundFeedback(result){toast(result.award?'Bác bán hàng đồng ý bớt giá!':'Thử khéo hơn ở lượt sau nhé.');}
+  function soundFeedback(result){toast(result.award?'Cô bán rau đồng ý bớt giá!':'Thử khéo hơn ở lượt sau nhé.');const bubble=dialog.querySelector('#vendor-bubble');if(bubble)bubble.textContent=result.award>=.05?'Thôi được, bớt hẳn cho con đó!':result.award?'Ừ, bớt chút xíu thôi nha.':'Giá này rẻ lắm rồi con ơi!';}
   paintRound();
 }
 

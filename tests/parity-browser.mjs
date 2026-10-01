@@ -29,6 +29,7 @@ try {
     await pricePlus.focus();await page.keyboard.press('Enter');
     assert.ok(await pricePlus.evaluate(node=>node===document.activeElement),'The same price + button retains keyboard focus');
     assert.equal((await save(page)).prices.kimchi,oldPrice+1000);
+    await tab(page,'stock');assert.equal(await page.locator('.goals-board .goal-line').count(),3,'The day goals are listed in the stock tab');
     await click(page,'goals');assert.equal(await page.locator('.goal-card').count(),3);await close(page);
     await page.screenshot({path:'test-results/parity-fresh-prep.png',fullPage:true,animations:'disabled'});
   });
@@ -107,8 +108,8 @@ try {
     await item(page,'hire','chef');assert.equal((await save(page)).staff.chef,true);
     await item(page,'fire','chef');await item(page,'confirm-fire','chef');assert.equal((await save(page)).staff.chef,false);
     await tab(page,'decor');await item(page,'decor','awning_purple');assert.equal((await save(page)).decoration.selected.awning,'awning_purple');
-    assert.ok((await page.locator('.prep-illustration>img').getAttribute('src')).endsWith('shop-purple.svg'));
-    await item(page,'decor','pet_cat');assert.ok((await page.locator('.scene-pet img').getAttribute('src')).endsWith('/assets/cat.svg'));
+    assert.match(await page.locator('.prep-illustration .shop-scene').innerHTML(),/#9C7BD4/i,'The shop scene draws the chosen awning colour');
+    await item(page,'decor','pet_cat');assert.equal(await page.locator('.prep-illustration .shop-scene [data-layer="pet-cat"]').count(),1,'The bought cat appears in the shop scene');
     await tab(page,'reviews');await item(page,'review-filter','5');assert.equal(await page.locator('.review').count(),1);
     await click(page,'reply');await page.locator('#review-reply').fill('<b>Cảm ơn bạn!</b>');await click(page,'save-reply');
     assert.equal(await page.locator('.owner-reply b').count(),0,'Reply markup stays literal');assert.match(await page.locator('.owner-reply').textContent(),/<b>Cảm ơn bạn!<\/b>/);
@@ -207,6 +208,28 @@ try {
     const ended=await save(page);assert.equal(ended.phase,'prep');assert.equal(ended.day,3);assert.equal(ended.history.length,1);assert.equal(ended.lastDay.lost,1);
   },{fixture:incidentFixture(false)});
 
+  await scenario('far-delivery-ride-settles-once',async page=>{
+    await click(page,'continue');const before=await save(page);assert.equal(await page.locator('#dialog-title').textContent(),'Đơn giao xa');
+    await page.clock.runFor(1100);await page.locator('[data-action="incident"][data-id="ride"]').click();
+    assert.equal(await page.locator('#trip-canvas').isVisible(),true,'The scooter ride opens in the dialog');
+    for(let second=0;second<40&&!(await page.locator('#dialog .modal-actions [data-action="close-modal"]').count());second++)await page.clock.runFor(1000);
+    const after=await save(page);assert.equal(after.activeDay.pendingIncident,null);assert.ok(after.money>=before.money+15000,'Riding pays at least the courier fee');assert.equal(after.reviews.length,before.reviews.length+1,'The review is written once the order arrives');
+    await close(page);assert.equal(await page.locator('dialog').evaluate(d=>d.open),false);
+  },{fixture:tripFixture('ride')});
+
+  await scenario('starship-flight-fuel-back-and-settlement',async page=>{
+    await click(page,'continue');const before=await save(page),planet=G.PLANETS.find(row=>row.id===before.activeDay.pendingIncident.planet);assert.match(await page.locator('#dialog-title').textContent(),/Đơn tới/);
+    await page.clock.runFor(1100);await page.locator('[data-action="incident"][data-id="fly"]').click();
+    assert.equal(await page.locator('[data-action="launch"]').count(),3,'Three fuel loads');await page.locator('[data-action="trip-back"]').click();
+    await page.clock.runFor(1100);assert.equal(await page.locator('[data-action="incident"][data-id="drone"]').count(),1,'Going back offers the drone again');
+    await page.locator('[data-action="incident"][data-id="fly"]').click();await page.locator('[data-action="launch"][data-id="full"]').click();
+    assert.equal(await page.locator('#trip-canvas').isVisible(),true,'The starship flight opens in the dialog');
+    for(let second=0;second<120&&!(await page.locator('#dialog .modal-actions [data-action="close-modal"]').count());second++)await page.clock.runFor(1000);
+    const after=await save(page);assert.equal(after.activeDay.pendingIncident,null);
+    assert.ok(after.money>=before.money-35000+planet.fee&&after.money<=before.money-35000+Math.round(planet.fee*1.3),'Fee plus bonus, minus the full tank');
+    await close(page);
+  },{fixture:tripFixture('flight')});
+
   await scenario('incident-on-final-closing-order-does-not-stall',async page=>{
     await click(page,'continue');const before=await save(page);assert.equal(before.phase,'closing');assert.equal(before.activeDay.orders.length,0);
     await page.clock.runFor(65000);assert.deepEqual(await save(page),before,'Closing waits while the decision remains pending');
@@ -254,4 +277,5 @@ function openFixture(){const state=stock(G.createGame('Tiệm kiểm tra ca bán
 function advancedFixture(){const state=G.createGame('Tiệm đủ món');state.xp=8000;state.money=100000000;state.settings.sound=false;state.settings.motion=false;state.unlocked=G.INGREDIENTS.map(i=>i.id);stock(state,15);for(const id of ['pot2','pot3'])assert.ok(G.buyUpgrade(state,id).ok);state.reviews=[{id:'day-1-order-101',day:1,name:'Mai',rating:5,stars0:5,cause:'great',text:'Mì ngon!',thread:[],xp:false},{id:'day-1-order-102',day:1,name:'An',rating:3,stars0:3,cause:'wait',text:'Mong phục vụ nhanh hơn.',thread:[],xp:false}];state.reputation=4;assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
 function dayThreeFixture(withStock){const state=G.createGame('Tiệm ngày ba');state.day=3;state.money=1000000;state.settings.sound=false;state.settings.motion=false;if(withStock)stock(state);assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
 function washingFixture(){const state=G.createGame('Tiệm rửa tô');state.day=2;state.money=1000000;state.settings.sound=false;state.settings.motion=false;stock(state);assert.ok(G.beginDay(state).ok);for(let i=0;i<3;i++){const {order}=G.createOrder(state,()=>.5);assert.ok(order);G.takeBowl(state);G.addBroth(state,order.broth);for(const id of order.toppings)G.addTopping(state,id);for(let n=0;n<order.spice;n++)G.addChili(state);G.startPot(state);G.tickDay(state,3.1,()=>.5);G.collectPot(state);assert.ok(G.serveBowl(state,()=>.5).ok)}assert.equal(G.finishDay(state).finished,true);assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
+function tripFixture(kind){const flight=kind==='flight',state=G.createGame('Tiệm giao xa');state.day=10;state.money=5000000;state.xp=flight?6000:950;state.settings.sound=false;state.settings.motion=false;state.upgrades[flight?'spaceport':'delivery']=true;assert.ok(G.buyCart(state,{bowls:30,noodles:30,kimchi:20,beef:20,sausage:20}).ok);const rolls=flight?[.99,.99,.99,.1,.5]:[.99,.99,.99];let roll=0;assert.ok(G.beginDay(state,()=>roll<rolls.length?rolls[roll++]:.99).ok);state.activeDay.nextArrival=999;G.tickDay(state,flight?90:22.1,()=>flight?.5:.1);const order=state.activeDay.orders.find(row=>flight?row.planet:row.far);assert.ok(order);G.selectOrder(state,order.id);G.takeBowl(state);G.addBroth(state,order.broth);for(const id of order.toppings)G.addTopping(state,id);for(let n=0;n<order.spice;n++)G.addChili(state);G.startPot(state);G.tickDay(state,3.3,()=>.5);G.collectPot(state);assert.ok(G.serveBowl(state,()=>.5).ok);assert.equal(state.activeDay.pendingIncident.type,flight?'flight':'ride');assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
 function incidentFixture(closing){const state=G.createGame('Tiệm xử lý tình huống');state.day=2;state.money=1000000;state.settings.sound=false;state.settings.motion=false;stock(state);assert.ok(G.beginDay(state).ok);const {order}=G.createOrder(state,()=>.5);if(!closing)assert.ok(G.createOrder(state,()=>.5).ok);G.takeBowl(state);G.addBroth(state,order.broth);for(const id of order.toppings)G.addTopping(state,id);for(let n=0;n<order.spice;n++)G.addChili(state);G.startPot(state);G.tickDay(state,3.1,()=>.5);G.collectPot(state);G.startPot(state);if(closing)assert.equal(G.finishDay(state).closing,true);const draws=[.5,.02,.9,.4,.2],result=G.serveBowl(state,()=>draws.shift()??.5);assert.equal(result.incident?.type,'dash');assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}

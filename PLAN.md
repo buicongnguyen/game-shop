@@ -29,7 +29,7 @@ The earlier version-1 implementation and audit exposed large mechanical gaps. Ve
 - All controls are reachable on mobile portrait, landscape, short desktop and large desktop layouts. The cooking gauge visibly exposes the correct target region; keyboard focus survives updates.
 - Runtime assets are local. The delivered source and build match the tested staging files.
 
-Remaining differences must be described accurately in `PARITY.md`; a passing test suite is not evidence of pixel-perfect or exhaustive equivalence.
+Remaining differences must be described accurately in `docs/PARITY.md`; a passing test suite is not evidence of pixel-perfect or exhaustive equivalence.
 
 ## Execution record — version 2
 
@@ -38,3 +38,50 @@ Remaining differences must be described accurately in `PARITY.md`; a passing tes
 - Completed independent code, financial, persistence, browser and visual reviews; repaired the findings and added regression checks.
 - Passed 39 engine/side-game tests, 18 browser scenarios and the seeded 100-day simulation; built the static distribution.
 - Delivery preserves the previous app under `.review-backup/parity-v2-*`, installs source/assets/build/docs/tests, and compares file hashes. Current test evidence is retained in `test-results/parity-v2/`.
+
+## Round 3 — detail, the delivery ride and the starship (2026-10-01)
+
+**Evaluation.**
+- **Detail:** the reference gives every game object its own illustration (86 pictures) and builds scenes from them:
+  - per-broth pots, a noodle pot drawn idle or boiling, the bowl stack and the chili bottle;
+  - every topping;
+  - customer and staff portraits, and mascot moods;
+  - pets placed in the shop;
+  - a doodle page background;
+  - sprites for the mini-games.
+
+  Our art was a set of small, simple icons. We take the mechanism (one picture per object, scenes composed from state) and draw everything ourselves, following [docs/ART-STYLE.md](docs/ART-STYLE.md).
+- **Starship:** the reference has no starship or planets. It fits best as a late-game extension of the reference's far-delivery scooter ride, which is still missing here. So the ride comes first, then the starship on the same engine: an optional spaceport upgrade, fuel bought before launch and collected on the way, planets with their own hazards, and obstacles to dodge.
+
+**Steps.**
+1. Style guide and art generators in `src/art/` (characters, bowl, scene) plus redrawn ingredient icons.
+2. **Characters:**
+   - customer portraits by persona with happy, waiting and angry moods;
+   - staff portraits;
+   - a mascot with moods.
+3. **Kitchen:**
+   - a pot per broth, and a noodle pot that shows boiling;
+   - toppings drawn inside the bowl, and steam;
+   - all 32 ingredient icons redrawn with more detail.
+4. **Shop and street:**
+   - a shop scene that shows the awning, decorations and every purchased upgrade;
+   - a service street whose sky follows the day, with rain on rainy days;
+   - a doodle page background;
+   - coins flying to the till, and stamps.
+5. **Far-delivery ride**, following the reference's rules:
+   - at most 2 far app orders a day;
+   - ride yourself or hire a courier for 15,000₫;
+   - a three-lane road with potholes, puddles and cones;
+   - a bonus by hits and a star change.
+6. **Starship, interplanetary delivery:**
+   - unlocked by a spaceport upgrade at level 9;
+   - five planets;
+   - fuel load before launch, a fuel gauge that drains, fuel canisters to collect;
+   - asteroids, debris and comets.
+7. Engine tests, simulation, browser and layout suites, screenshots on phone and PC, documentation.
+
+**Acceptance.**
+- Every object on the service and prep screens has its own original illustration.
+- The shop scene changes with each decoration and upgrade.
+- Both mini-games are playable by touch and keyboard, pause the shop, survive a reload (the choice dialog reopens), and settle money and stars exactly once.
+- All suites pass, and the fit-the-screen layout contract holds from 320×568 to 1920×1080.

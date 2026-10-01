@@ -1,7 +1,9 @@
 import { INGREDIENTS, UPGRADES, STAFF, DECORATIONS, LEVELS, INITIAL_INGREDIENT_IDS, DAILY_EVENTS, DAY_DURATION, CLOSING_GRACE, BASE_RENT, BASE_UTILITIES, STARTING_CASH } from './catalog.js';
 import { cleanSidequests, marketDiscount, secretBroth } from './sidequests.js';
 import { STORIES, DAY_STORIES, storyChoices, storyOutcome } from './situations.js';
-import { composeReview, pickCustomer, replyTone, customerAnswer, REVIEW_CAUSES } from './voice.js';
+import { composeReview, pickCustomer, replyTone, customerAnswer, REVIEW_CAUSES, PERSONAS } from './voice.js';
+import { PLANETS, PLANET_IDS, planetById, FUEL_LOADS, DRONE_FEE, flightOutcome } from './planets.js';
+export { PLANETS, FUEL_LOADS, DRONE_FEE };
 export { INGREDIENTS, UPGRADES, STAFF, DECORATIONS, LEVELS, DAILY_EVENTS, DAY_DURATION, CLOSING_GRACE, STORIES };
 // Short messages for the interface (a customer changed their mind, the buyer returned...).
 // They are transient, so they never enter the save.
@@ -126,7 +128,7 @@ export function hireStaff(state, id) { const result = purchaseAsset(state, STAFF
 export function fireStaff(state, id) { if (!STAFF.some(member => member.id === id) || !state.staff[id]) return fail('Nhân viên chưa làm tại tiệm.'); state.staff[id] = false; return good('Đã kết thúc ca làm.'); }
 export function buyDecoration(state, id) { const item = DECORATIONS.find(row => row.id === id); if (!item || state.decoration.owned.includes(id)) return fail('Trang trí không hợp lệ hoặc đã sở hữu.'); if (levelInfo(state).level < item.unlockLevel || state.money < item.price) return fail('Chưa đủ cấp hoặc tiền.'); if (item.price > 0 && state.money - item.price < openingReserve(state)) return fail(reserveMessage(openingReserve(state))); if (!spend(state, item.price)) return fail('Đã đạt giới hạn tiền.'); state.decoration.owned.push(id); state.decoration.selected[item.type] = id; return good('Tiệm xinh hơn rồi!', { cost: item.price }); }
 export function selectDecoration(state, id) { const item = DECORATIONS.find(row => row.id === id); if (!item || !state.decoration.owned.includes(id)) return fail('Bạn chưa sở hữu trang trí này.'); state.decoration.selected[item.type] = id; return good('Đã đổi trang trí.'); }
-function newDay(state) { return { day: state.day, duration: DAY_DURATION, remaining: DAY_DURATION, closingRemaining: CLOSING_GRACE, elapsed: 0, spawnElapsed: 0, nextArrival: 10, appSpawnElapsed: 0, nextAppArrival: 22, studentsSpawned: false, reviewerSpawned: false, chefCooldown: 0, goalRewards: 0, pendingIncident: null, incidentCount: 0, lastIncidentAt: -30, buzz: state.buzzNext || 0, slowUntil: 0, orders: [], pots: Array(potCount(state)).fill(null), readyNoodles: [], bowl: emptyBowl(), selectedOrderId: null, served: 0, revenue: state.pendingIncome || 0, expenses: state.pendingExpenses, lost: 0, customers: 0, mistakes: 0, waste: 0, tips: 0, perfect: 0, ideal: 0, spicy: 0, deliveries: 0, noLost: 0, dineInServed: 0, combo: 0, maxCombo: 0, buyerTrips: 0, buyerRuns: {}, seq: 0, storyTimes: [], storiesSeen: [], dirty: null, inspected: false, noisyId: null, tutorial: false, xpGained: 0, priceLost: 0, recent: [], wagesDue:
+function newDay(state) { return { day: state.day, duration: DAY_DURATION, remaining: DAY_DURATION, closingRemaining: CLOSING_GRACE, elapsed: 0, spawnElapsed: 0, nextArrival: 10, appSpawnElapsed: 0, nextAppArrival: 22, studentsSpawned: false, reviewerSpawned: false, chefCooldown: 0, goalRewards: 0, pendingIncident: null, incidentCount: 0, lastIncidentAt: -30, buzz: state.buzzNext || 0, slowUntil: 0, orders: [], pots: Array(potCount(state)).fill(null), readyNoodles: [], bowl: emptyBowl(), selectedOrderId: null, served: 0, revenue: state.pendingIncome || 0, expenses: state.pendingExpenses, lost: 0, customers: 0, mistakes: 0, waste: 0, tips: 0, perfect: 0, ideal: 0, spicy: 0, deliveries: 0, noLost: 0, dineInServed: 0, combo: 0, maxCombo: 0, buyerTrips: 0, buyerRuns: {}, seq: 0, storyTimes: [], storiesSeen: [], dirty: null, inspected: false, noisyId: null, tutorial: false, xpGained: 0, priceLost: 0, recent: [], farOrders: 0, planetAt: null, wagesDue:
  mapOf(STAFF, member => state.staff[member.id] ? member.wage : 0), event: dayEvent(state), goals: state.goals }; }
 // Story windows (fractions of the day) as in the reference: each is kept with 40% odds on day 2, 60% later.
 const STORY_WINDOWS = [[.12, .3], [.38, .58], [.64, .84]];
@@ -139,6 +141,8 @@ export function beginDay(state, random = seeded(state.day * 7919 + state.stats.c
   const day = newDay(state); state.activeDay = day; state.pendingExpenses = 0; state.pendingIncome = 0; state.buzzNext = 0; state.insolvent = false; state.phase = 'open';
   if (!state.tutorialDone && state.day === 1) startTutorial(state);
   else if (state.day >= 2) { let rolls; try { const keep = state.day === 2 ? .4 : .6; rolls = STORY_WINDOWS.filter(() => rng(random) < keep).map(([from, to]) => Math.round((from + rng(random) * (to - from)) * DAY_DURATION * 100) / 100); } catch { rolls = []; } day.storyTimes = rolls; }
+  // With the spaceport, most days bring one interplanetary order, somewhere between 20% and 65% of the day.
+  if (state.upgrades.spaceport && !day.tutorial) { try { day.planetAt = rng(random) < .7 ? Math.round((.2 + rng(random) * .45) * DAY_DURATION * 100) / 100 : null; } catch { day.planetAt = null; } }
   return good(`Ngày ${state.day}: mở cửa!`, { activeDay: state.activeDay });
 }
 // A new shop's first customer is scripted: patient, one stocked broth and topping, spice 1.
@@ -146,7 +150,7 @@ export function beginDay(state, random = seeded(state.day * 7919 + state.stats.c
 function startTutorial(state) {
   const day = state.activeDay, stocked = kind => availableIngredients(state).find(item => item.kind === kind && inventoryCount(state, item.id));
   const broth = stocked('broth'), topping = stocked('topping'), dish = { broth: broth.id, toppings: topping ? [topping.id] : [], spice: 1, price: priceFor(state, broth.id, topping ? [topping.id] : []) };
-  const order = { id: `day-${state.day}-order-${state.nextOrderId++}`, name: 'Chị Hạnh', ...dish, toppings: [...dish.toppings], dishes: [{ ...dish, toppings: [...dish.toppings] }], patience: 99, maxPatience: 99, bowlsTotal: 1, bowlsServed: 0, mistakes: 0, qualityPenalty: 0, delivery: false, reviewer: false, tea: false, trait: null, changed: false, tourist: false, self: 'chị' };
+  const order = { id: `day-${state.day}-order-${state.nextOrderId++}`, name: 'Chị Hạnh', ...dish, toppings: [...dish.toppings], dishes: [{ ...dish, toppings: [...dish.toppings] }], patience: 99, maxPatience: 99, bowlsTotal: 1, bowlsServed: 0, mistakes: 0, qualityPenalty: 0, delivery: false, reviewer: false, tea: false, trait: null, changed: false, tourist: false, self: 'chị', persona: 'young-woman', far: false, planet: null };
   day.orders.push(order); day.customers++; state.stats.customers++; day.selectedOrderId = order.id; day.tutorial = true;
 }
 export function skipTutorial(state) {
@@ -187,6 +191,9 @@ function pickFresh(state, random, rows) {
 function makeDish(state, random) { const level = levelInfo(state).level, broths = availableIngredients(state).filter(item => item.kind === 'broth'), broth = broths[pickFresh(state, random, broths)].id, choices = availableIngredients(state).filter(item => item.kind === 'topping'), count = weighted(random, level < 3 ? [.15, .85] : level < 7 ? [.15, .5, .35] : [.1, .35, .35, .2]), toppings = []; while (toppings.length < count && choices.length) toppings.push(choices.splice(pickFresh(state, random, choices), 1)[0].id); let spice = weighted(random, level < 3 ? [.2, .3, .3, .2] : [.07, .12, .17, .18, .15, .12, .1, .09]); if (state.activeDay.event.id === 'hot') spice = Math.min(spice, Math.floor(rng(random) * 3)); if (state.activeDay.event.id === 'challenge' && rng(random) < .45) spice = 7; if (state.activeDay.event.id === 'cold' && rng(random) < .6) spice = Math.max(spice, level < 3 ? 2 + Math.floor(rng(random) * 2) : 4 + Math.floor(rng(random) * 4)); return { broth, toppings, spice, price: priceFor(state, broth, toppings) }; }
 const TOURIST_NAMES = ['Emma', 'Lucas', 'Mia', 'Noah', 'Sofia', 'Kenji', 'Mei', 'Hans', 'Chloé', 'Oliver'];
 export const TRAITS = Object.freeze(['hurried', 'fickle', 'haggler']);
+const PERSONA_IDS = [...PERSONAS.map(row => row.id), 'tourist', 'astronaut'];
+const LATER_ITEMS = ['spaceport'];
+
 // A guest who wants something the shop has run out of switches to another stocked item half the time;
 // otherwise they walk on. Returns the missing ingredient id, or null when every dish can be made.
 function checkArrivalStock(state, dishes, random) {
@@ -213,8 +220,8 @@ function priceNotice(state, text) { const day = state.activeDay, last = priceNot
 // Arrivals, in the reference's order: a free table; a severe price anywhere on the menu turns 80% away (1 in 10 of
 // them posts a 1–2★ review); a sold-out dish switches or walks; an expensive dish is refused 40% of the time.
 // Students, the reviewer and invited tourists do not check prices. App orders skip silently.
-function createOrderFor(state, random, delivery = false, { tourist = false, bypassPrice = tourist, noTrait = false } = {}) {
-  const day = state.activeDay; if (state.phase !== 'open' || !day || day.remaining <= (delivery ? 10 : 8)) return fail('Tiệm đã ngừng nhận khách mới.'); if (delivery && !state.upgrades.delivery || day.orders.filter(order => order.delivery === delivery).length >= (delivery ? 2 : capacity(state))) return fail(delivery ? 'Đã đủ hai đơn giao hàng.' : 'Các bàn đã đầy.'); if (state.nextOrderId >= 999999999 || state.stats.customers >= 1e9 || day.customers >= 1e9 || state.stats.lost + day.orders.length >= 1e9) return fail('Đã đạt giới hạn đơn hàng.');
+function createOrderFor(state, random, delivery = false, { tourist = false, planet = null, bypassPrice = tourist || !!planet, noTrait = false } = {}) {
+  const day = state.activeDay; if (state.phase !== 'open' || !day || day.remaining <= (delivery ? 10 : 8)) return fail('Tiệm đã ngừng nhận khách mới.'); if (planet && (!state.upgrades.spaceport || !planetById(planet)) || delivery && !planet && !state.upgrades.delivery || day.orders.filter(order => order.delivery === delivery).length >= (delivery ? 2 : capacity(state))) return fail(delivery ? 'Đã đủ hai đơn giao hàng.' : 'Các bàn đã đầy.'); if (state.nextOrderId >= 999999999 || state.stats.customers >= 1e9 || day.customers >= 1e9 || state.stats.lost + day.orders.length >= 1e9) return fail('Đã đạt giới hạn đơn hàng.');
   if (!delivery && !bypassPrice) {
     const severe = availableIngredients(state).filter(item => item.kind !== 'base' && severePrice(state, item.id));
     if (severe.length) {
@@ -226,14 +233,19 @@ function createOrderFor(state, random, delivery = false, { tourist = false, bypa
       }
     }
   }
-  let dishes, name, self = 'mình', trait = null, soldOut = null, walkRoll = 1, walkStars = 2, refused = false;
+  let dishes, name, self = 'mình', persona = 'regular', far = false, trait = null, soldOut = null, walkRoll = 1, walkStars = 2, refused = false;
   try {
     const level = levelInfo(state).level, first = makeDish(state, random), total = delivery ? 1 : level >= 7 ? 1 + weighted(random, [.5, .32, .18]) : level >= 3 && day.event.id === 'weekend' && rng(random) < .3 ? 2 : 1; dishes = [first]; while (dishes.length < total) dishes.push(makeDish(state, random));
     // One draw names the guest: a tourist, or one of the voice module's local personas with how they refer to themselves.
-    const nameRoll = rng(random); if (tourist) { name = TOURIST_NAMES[Math.floor(nameRoll * TOURIST_NAMES.length)]; self = 'I'; } else ({ name, self } = pickCustomer(seeded(Math.floor(nameRoll * 4294967296))));
+    const nameRoll = rng(random);
+    if (planet) { name = ASTRONAUTS[Math.floor(nameRoll * ASTRONAUTS.length)]; self = 'tôi'; persona = 'astronaut'; }
+    else if (tourist) { name = TOURIST_NAMES[Math.floor(nameRoll * TOURIST_NAMES.length)]; self = 'I'; persona = 'tourist'; }
+    else ({ name, self, persona } = pickCustomer(seeded(Math.floor(nameRoll * 4294967296))));
     soldOut = checkArrivalStock(state, dishes, random);
     if (soldOut && !delivery) { walkRoll = rng(random); walkStars = rng(random) < .5 ? 2 : 3; }
     if (!soldOut && !bypassPrice && dishes.some(dish => [dish.broth, ...dish.toppings].some(id => tooExpensive(state, id)))) refused = rng(random) < .4;
+    // A fifth of app orders (30% in the rain) are too far for the app's riders, at most two a day.
+    if (delivery && !planet && !soldOut && !refused && day.farOrders < 2) far = rng(random) < (day.event.id === 'rain' ? .3 : .2);
     // From day 3, 13% of ordinary dine-in guests are hurried, change their mind about spice, or haggle.
     if (!soldOut && !refused && !delivery && !tourist && !noTrait && state.day >= 3 && !day.tutorial && rng(random) < .13) trait = pick(random, TRAITS);
   } catch { return fail('Không thể tạo đơn hàng.'); }
@@ -249,8 +261,8 @@ function createOrderFor(state, random, delivery = false, { tourist = false, bypa
     day.priceLost++; priceNotice(state, 'Có khách xem giá món mình chọn thấy đắt, đành bỏ đi.');
     return { ok: false, message: 'Khách chê giá đắt.', priceWalk: true };
   }
-  let patience = (66 + Math.min(levelInfo(state).level - 1, 8) * 4) * (1 + dishes.reduce((sum, dish) => sum + dish.toppings.length, 0) / dishes.length * .12) * (1 + (dishes.length - 1) * .65); for (const upgrade of UPGRADES) if (state.upgrades[upgrade.id] && upgrade.patienceMultiplier) patience *= upgrade.patienceMultiplier; if (state.decoration.selected.pet) patience *= 1.08; if (trait === 'hurried') patience *= .6; if (delivery) patience = (96 + Math.min(levelInfo(state).level - 1, 8) * 5) * (1 + dishes[0].toppings.length * .12); patience = Math.round(patience * 100) / 100;
-  const order = { id: `day-${state.day}-order-${state.nextOrderId++}`, name, ...dishes[0], dishes, patience, maxPatience: patience, bowlsTotal: dishes.length, bowlsServed: 0, mistakes: 0, qualityPenalty: 0, delivery, reviewer: false, tea: false, trait, changed: false, tourist, self }; day.orders.push(order); day.recent = [...day.recent, dishes.flatMap(dish => [dish.broth, ...dish.toppings])].slice(-RECENT_ORDERS); day.customers++; state.stats.customers++; if (!day.selectedOrderId) day.selectedOrderId = order.id; return good(`${name} gọi mì ${items.get(order.broth).shortName}.`, { order });
+  let patience = (66 + Math.min(levelInfo(state).level - 1, 8) * 4) * (1 + dishes.reduce((sum, dish) => sum + dish.toppings.length, 0) / dishes.length * .12) * (1 + (dishes.length - 1) * .65); for (const upgrade of UPGRADES) if (state.upgrades[upgrade.id] && upgrade.patienceMultiplier) patience *= upgrade.patienceMultiplier; if (state.decoration.selected.pet) patience *= 1.08; if (trait === 'hurried') patience *= .6; if (delivery) patience = (96 + Math.min(levelInfo(state).level - 1, 8) * 5) * (1 + dishes[0].toppings.length * .12); if (far) patience *= 1.25; if (planet) patience *= 1.5; patience = Math.round(patience * 100) / 100;
+  const order = { id: `day-${state.day}-order-${state.nextOrderId++}`, name, ...dishes[0], dishes, patience, maxPatience: patience, bowlsTotal: dishes.length, bowlsServed: 0, mistakes: 0, qualityPenalty: 0, delivery, reviewer: false, tea: false, trait, changed: false, tourist, self, persona, far, planet }; day.orders.push(order); if (far) day.farOrders++; day.recent = [...day.recent, dishes.flatMap(dish => [dish.broth, ...dish.toppings])].slice(-RECENT_ORDERS); day.customers++; state.stats.customers++; if (!day.selectedOrderId) day.selectedOrderId = order.id; return good(`${name} gọi mì ${items.get(order.broth).shortName}.`, { order });
 }
 export function createOrder(state, random = Math.random) { return createOrderFor(state, random, false); }
 // A dine-in customer below 60% patience can be offered one iced tea: 3,000đ restores 35% of their patience.
@@ -336,6 +348,8 @@ function incidentOptions(incident) {
   if (type === 'hair') return [option('refund', 'Hoàn tiền và xin lỗi'), option('topup', 'Làm phần mới · 10.000đ'), option('argue', 'Giải thích với khách')];
   if (type === 'haggle') return [option('concede', `Bớt ${formatMoney(incident.cut)}`), option('hold', 'Giữ nguyên giá'), option('tea', `Mời trà, nói khéo · ${formatMoney(TEA_COST)}`)];
   if (type === 'story') return storyChoices(incident.story, { staff: incident.hasStaff });
+  if (type === 'ride') return [option('ride', 'Tự chạy xe đi giao'), option('hire', `Thuê ship ngoài · ${formatMoney(RIDE_FEE)}`)];
+  if (type === 'flight') return [option('fly', 'Tự lái phi thuyền'), option('drone', `Gửi drone giao · ${formatMoney(DRONE_FEE)}`)];
   if (type === 'stockout') {
     const item = items.get(incident.item), rows = [];
     if (incident.buyer) rows.push(option('waitBuyer', 'Đợi người đi chợ về'));
@@ -482,9 +496,59 @@ function resolveStockoutChoice(state, incident, action) {
   if (action === 'drop') { replaceInOrder(state, order, incident.item, null); return good(`Đã bỏ ${item.shortName} khỏi món, giá giảm tương ứng.`); }
   return fail('Cách xử lý không hợp lệ.');
 }
+// ---- Far deliveries (the reference's scooter ride) and interplanetary flights (an original extension of it).
+// Serving such an order opens a choice: deliver it yourself in the mini-game, or pay someone else. The review is
+// written when the trip ends: a clean trip lifts it a star, a rough one costs a star, a paid courier changes nothing.
+// Courier, drone and fuel costs may take the till below zero, so a pending trip can always be settled.
+export const RIDE_FEE = 15000;
+const ASTRONAUTS = ['Phi hành gia Tinh', 'Phi hành gia Vân', 'Kỹ sư Nguyệt', 'Bác học Thiên', 'Thuyền trưởng Hằng', 'Phi công Lam', 'Nhà thám hiểm Sao', 'Trạm trưởng Vũ'];
+// How far a far order's customer lives, 2.0–5.0 km, fixed by the order id so the ticket can show it before cooking.
+export function tripKm(orderId) { return Math.round((2 + hashText(String(orderId)) % 31 / 10) * 10) / 10; }
+function queueTrip(state, order, trip) {
+  const day = state.activeDay, km = tripKm(order.id);
+  const incident = { id: nextSituationId(state), type: order.planet ? 'flight' : 'ride', name: order.name, reviewId: order.id, rating: trip.rating, cause: trip.cause, detail: { ...trip.detail }, km, rain: day.event.id === 'rain', planet: order.planet ?? null };
+  incident.options = incidentOptions(incident); day.pendingIncident = incident;
+  return incident;
+}
+function settleTrip(state, incident, delta) {
+  const rating = clamp(incident.rating + delta, 1, 5), cause = delta < 0 ? 'app-late' : delta > 0 && rating >= 5 ? 'app-great' : incident.cause;
+  addReview(state, { id: incident.reviewId, name: incident.name, reviewer: false }, rating, cause, incident.detail);
+  state.activeDay.pendingIncident = null; return rating;
+}
+function resolveTripChoice(state, incident, action) {
+  if (action === 'ride') return fail('Lên xe để tự giao đơn này.');
+  if (action === 'fly') return fail('Chọn nhiên liệu rồi cất cánh nhé.');
+  const cost = action === 'hire' ? RIDE_FEE : DRONE_FEE;
+  if (!spend(state, cost)) return fail('Đã đạt giới hạn tiền.');
+  settleTrip(state, incident, 0);
+  return good(action === 'hire' ? `Đã thuê ship giao đơn cho ${incident.name}: −${formatMoney(cost)}.` : `Drone đã cất cánh mang mì tới ${planetById(incident.planet).name}: −${formatMoney(cost)}.`, { tone: 'neutral', cost });
+}
+// Riding pays the courier fee yourself plus a bonus: 20,000₫ with no hits, 10,000₫ with one or two, none after that.
+export function finishRide(state, result = {}) {
+  const incident = state.activeDay?.pendingIncident; if (!operating(state) || incident?.type !== 'ride') return fail('Không có đơn giao xa đang chờ.');
+  const { hits } = result; if (!int(hits, 999)) return fail('Kết quả chuyến giao không hợp lệ.');
+  const bonus = hits === 0 ? 20000 : hits <= 2 ? 10000 : 0, earned = RIDE_FEE + bonus;
+  if (!int(state.stats.tips + earned, 1e12) || !income(state, earned)) return fail('Đã đạt giới hạn tiền.');
+  state.activeDay.tips += earned; state.stats.tips += earned;
+  const rating = settleTrip(state, incident, hits === 0 ? 1 : hits <= 2 ? 0 : -1);
+  return good(hits === 0 ? `Giao êm ru, không vấp lần nào! +${formatMoney(earned)}` : hits <= 2 ? `Giao xong, vấp ${hits} lần. +${formatMoney(earned)}` : `Đường xóc quá, vấp ${hits} lần, tô mì sóng sánh. +${formatMoney(earned)}`, { tone: hits === 0 ? 'good' : hits <= 2 ? 'neutral' : 'bad', earned, bonus, rating, hits });
+}
+// A flight pays the planet's fee plus a bonus by tier, minus the fuel bought for it.
+export function finishFlight(state, result = {}) {
+  const incident = state.activeDay?.pendingIncident; if (!operating(state) || incident?.type !== 'flight') return fail('Không có đơn liên hành tinh đang chờ.');
+  const load = FUEL_LOADS.find(row => row.id === result.fuel), planet = planetById(incident.planet);
+  if (!load || !planet || !int(result.hits, 999) || typeof result.ranOut !== 'boolean') return fail('Kết quả chuyến bay không hợp lệ.');
+  const outcome = flightOutcome(planet, result), earned = planet.fee + outcome.bonus;
+  if (!cash(state.money - load.cost + earned) || !int(state.stats.tips + outcome.bonus, 1e12) || !spend(state, load.cost) || !income(state, earned)) return fail('Đã đạt giới hạn tiền.');
+  state.activeDay.tips += outcome.bonus; state.stats.tips += outcome.bonus;
+  const rating = settleTrip(state, incident, outcome.stars);
+  const how = outcome.tier === 'perfect' ? 'hạ cánh hoàn hảo' : outcome.tier === 'good' ? 'giao mì thành công' : result.ranOut ? 'cạn nhiên liệu, về tới nơi bằng động cơ dự phòng' : 'tới nơi nhưng tàu trầy trụa';
+  return good(`${planet.name}: ${how}. +${formatMoney(earned)}, nhiên liệu −${formatMoney(load.cost)}.`, { tone: outcome.tier === 'perfect' ? 'good' : outcome.tier === 'good' ? 'neutral' : 'bad', outcome, earned, fuelCost: load.cost, rating });
+}
 export function resolveIncident(state, action, random = Math.random) {
   const day = state.activeDay, incident = day?.pendingIncident;
   if (!incident || !incident.options.some(option => option.id === action)) return fail('Cách xử lý không hợp lệ.');
+  if (incident.type === 'ride' || incident.type === 'flight') return resolveTripChoice(state, incident, action);
   if (incident.type === 'story') return resolveStory(state, incident, action, random);
   if (incident.type === 'stockout') return resolveStockoutChoice(state, incident, action);
   if (incident.type === 'haggle') return resolveHaggle(state, incident, action);
@@ -537,22 +601,24 @@ export function serveBowl(state, random = Math.random) {
   if (final && !order.delivery && rating >= 4) { if (state.upgrades.bowlset) tip += 3000 * order.bowlsTotal; if (state.upgrades.luckycat) { let luck = 1; try { luck = rng(random); } catch {} if (luck < .25) tip += 5000 * order.bowlsTotal; } }
   if (final && !order.delivery) tip += 2000 * secretBowls;
   if (day.event.id === 'payday') tip *= 2;
-  const fee = order.delivery ? Math.round(dish.price * .2) : 0, earned = dish.price - fee + tip;
+  const fee = order.delivery && !order.planet ? Math.round(dish.price * .2) : 0, earned = dish.price - fee + tip;
   if (!cash(state.money + earned) || !int(state.stats.revenue + earned, 1e12) || !int(day.revenue + earned, 1e12) || !int(state.stats.tips + tip, 1e12) || state.stats.served >= 1e9) return fail('Đã đạt giới hạn bản lưu.');
   state.money += earned; gainXp(state, 10); day.served++; if (!order.delivery) day.dineInServed++; if (dish.spice >= 5) day.spicy++; if (final && order.delivery) day.deliveries++; state.stats.served++; day.revenue += earned; state.stats.revenue += earned; day.tips += tip; state.stats.tips += tip; if (bowl.noodles === 'cooked') day.ideal++;
   if (final) { if (rating === 5) { day.combo++; day.maxCombo = Math.max(day.maxCombo, day.combo); } else day.combo = 0; }
   [order.dishes[order.bowlsServed], order.dishes[matchIndex]] = [order.dishes[matchIndex], order.dishes[order.bowlsServed]];
-  order.qualityPenalty += quality; order.bowlsServed++; let review = null;
+  order.qualityPenalty += quality; order.bowlsServed++; let review = null, trip = null;
   if (order.bowlsServed >= order.bowlsTotal) {
     if (rating === 5) { day.perfect++; state.stats.perfect++; }
     gainXp(state, (rating === 5 ? 8 : rating === 4 ? 4 : 0) * (order.reviewer ? 2 : 1));
     // The review names its main reason: a mistake, the noodles, the price, the wait, or simply how good it was.
     const cause = rating >= 4 ? (order.delivery ? 'app-great' : secretBowls ? 'secret' : !expensive && priceRatio < .88 ? 'cheap' : rating === 5 ? 'great' : 'ok') : order.mistakes ? 'wrong' : quality || order.qualityPenalty > 0 ? 'noodle' : expensive ? 'pricey' : used > .5 ? 'wait' : 'meh';
-    review = addReview(state, order, rating, cause, { dish: items.get(dish.broth).name, topping: dish.toppings[0] ? items.get(dish.toppings[0]).shortName : '', spice: dish.spice, self: order.self });
+    // A far or interplanetary order is reviewed only once it arrives: the trip can still lift or cost a star.
+    const detail = { dish: items.get(dish.broth).name, topping: dish.toppings[0] ? items.get(dish.toppings[0]).shortName : '', spice: dish.spice, self: order.self };
+    if (order.far || order.planet) trip = { rating, cause, detail }; else review = addReview(state, order, rating, cause, detail);
     dropOrder(state, order);
   } else Object.assign(order, order.dishes[order.bowlsServed]);
   day.bowl = emptyBowl(); updateGoals(state);
-  const incident = final ? (order.trait === 'haggler' && !order.delivery ? queueHaggle(state, order, tip, random) : queueIncident(state, order, tip, random)) : null;
+  const incident = final ? (trip ? queueTrip(state, order, trip) : order.trait === 'haggler' && !order.delivery ? queueHaggle(state, order, tip, random) : queueIncident(state, order, tip, random)) : null;
   // Serving the coached first bowl ends the tutorial; the real day starts now.
   let tutorialDone = false; if (day.tutorial) { day.tutorial = false; state.tutorialDone = true; tutorialDone = true; }
   return good(`Giao đúng món! +${formatMoney(earned)}`, { earned, tip, fee, rating, review, orderId: order.id, incident, tutorialDone });
@@ -719,6 +785,11 @@ export function tickDay(state, seconds, random = Math.random) {
       day.spawnElapsed += dt;
       if (day.remaining > 8 && day.spawnElapsed >= (day.nextArrival ?? 10)) { createOrder(state, safeRandom); day.spawnElapsed = 0; day.nextArrival = 10 / traffic(state) * (.75 + safeRandom() * .5); }
       day.appSpawnElapsed += dt;
+      // The day's interplanetary order arrives at its scheduled time, or retries every 5 s while the queue is full.
+      if (day.planetAt !== null && day.elapsed >= day.planetAt) {
+        if (day.remaining <= 12) day.planetAt = null;
+        else { const choices = PLANETS.filter(row => row.level <= levelInfo(state).level), planet = choices[Math.floor(safeRandom() * choices.length)], visit = planet ? createOrderFor(state, safeRandom, true, { planet: planet.id }) : fail(''); if (visit.ok) { day.planetAt = null; notify(`🚀 Đơn liên hành tinh từ ${planet.name}: ${visit.order.name} đặt một tô!`, 'good', 'chime'); } else day.planetAt = Math.min(280, day.elapsed + 5); }
+      }
       if (state.upgrades.delivery && day.remaining > 10 && day.appSpawnElapsed >= day.nextAppArrival) { createOrderFor(state, safeRandom, true); day.appSpawnElapsed = 0; day.nextAppArrival = 22 / traffic(state, false) * (day.event.id === 'rain' ? .5 : 1) * (.7 + safeRandom() * .6); }
       if (day.event.id === 'students' && !day.studentsSpawned && day.elapsed >= DAY_DURATION * .45) { for (let i = 0; i < 3; i++) createOrderFor(state, safeRandom, false, { bypassPrice: true }); day.studentsSpawned = true; notify('Một nhóm học sinh tan học ghé quán!', 'neutral', 'customerArrive'); }
       if (day.event.id === 'reviewer' && !day.reviewerSpawned && day.elapsed >= DAY_DURATION * .35) { const visit = createOrderFor(state, safeRandom, false, { bypassPrice: true, noTrait: true }); if (visit.ok || visit.walkedAway) day.reviewerSpawned = true; if (visit.ok) { visit.order.reviewer = true; visit.order.name = 'Reviewer ẩm thực'; notify('Một reviewer ẩm thực vừa ngồi xuống: đánh giá được tính gấp ba!', 'good', 'chime'); } }
@@ -775,7 +846,8 @@ function cleanActive(source, state) {
   if (!finite(day.appSpawnElapsed, 0, 271) || !finite(day.nextAppArrival, .1, 1000) || typeof day.studentsSpawned !== 'boolean' || typeof day.reviewerSpawned !== 'boolean') return null;
   day.incidentCount = source.incidentCount ?? 0; day.lastIncidentAt = source.lastIncidentAt ?? -30; day.buzz = source.buzz ?? 0; day.slowUntil = source.slowUntil ?? 0;
   if (!int(day.incidentCount, 6) || !finite(day.lastIncidentAt, -30, 271) || !finite(day.buzz, -.3, .6) || !finite(day.slowUntil, 0, 320)) return null;
-  day.seq = source.seq ?? day.incidentCount; day.storyTimes = source.storyTimes ?? []; day.storiesSeen = source.storiesSeen ?? []; day.dirty = source.dirty ?? null; day.inspected = source.inspected ?? false; day.noisyId = source.noisyId ?? null; day.tutorial = source.tutorial ?? false; day.xpGained = source.xpGained ?? 0; day.priceLost = source.priceLost ?? 0; day.recent = source.recent ?? [];
+  day.seq = source.seq ?? day.incidentCount; day.storyTimes = source.storyTimes ?? []; day.storiesSeen = source.storiesSeen ?? []; day.dirty = source.dirty ?? null; day.inspected = source.inspected ?? false; day.noisyId = source.noisyId ?? null; day.tutorial = source.tutorial ?? false; day.xpGained = source.xpGained ?? 0; day.priceLost = source.priceLost ?? 0; day.recent = source.recent ?? []; day.farOrders = source.farOrders ?? 0; day.planetAt = source.planetAt ?? null;
+  if (!int(day.farOrders, 2) || !(day.planetAt === null || finite(day.planetAt, 0, 280))) return null;
   if (!int(day.priceLost, 1e9) || !Array.isArray(day.recent) || day.recent.length > RECENT_ORDERS || !day.recent.every(row => Array.isArray(row) && row.length <= 15 && row.every(id => ['broth', 'topping'].includes(items.get(id)?.kind)))) return null;
   day.recent = day.recent.map(row => [...row]);
   if (!int(day.seq, 99) || !Array.isArray(day.storyTimes) || day.storyTimes.length > 3 || !day.storyTimes.every(time => finite(time, 0, 280)) || !Array.isArray(day.storiesSeen) || day.storiesSeen.length > DAY_STORIES.length || new Set(day.storiesSeen).size !== day.storiesSeen.length || !day.storiesSeen.every(id => DAY_STORIES.includes(id)) || !(day.dirty === null || day.dirty && finite(day.dirty.since, 0, 280) && int(day.dirty.taps, 2)) || typeof day.inspected !== 'boolean' || !(day.noisyId === null || orderIdValid(day.noisyId)) || typeof day.tutorial !== 'boolean' || !int(day.xpGained, 1e9)) return null;
@@ -786,6 +858,7 @@ function cleanActive(source, state) {
     if (PAYMENT_INCIDENTS.includes(row.type)) { if (!orderIdValid(row.reviewId) || !state.reviews.some(review => review.id === row.reviewId) || !int(row.amount, 2000000) || !int(row.bill, 2000000) || typeof row.overpaid !== 'boolean' || typeof row.hasStaff !== 'boolean' || !finite(row.roll, 0, 1) || !finite(row.collectionRoll, 0, 1) || ![0, 5000, 10000].includes(row.collectionTip)) return null; incident = copy(row, ['id', 'type', 'name', 'reviewId', 'amount', 'bill', 'overpaid', 'hasStaff', 'roll', 'collectionRoll', 'collectionTip']); }
     else if (row.type === 'haggle') { if (!orderIdValid(row.reviewId) || !state.reviews.some(review => review.id === row.reviewId) || !int(row.cut, 2000000, 1000) || !int(row.bill, 2000000) || !finite(row.roll, 0, 1)) return null; incident = copy(row, ['id', 'type', 'name', 'reviewId', 'cut', 'bill', 'roll']); }
     else if (row.type === 'story') { if (!Object.hasOwn(STORIES, row.story) || !(row.targetId === null || orderIdValid(row.targetId)) || typeof row.hasStaff !== 'boolean' || !Array.isArray(row.rolls) || row.rolls.length !== 2 || !row.rolls.every(roll => finite(roll, 0, 1)) || !(row.broth === null || items.get(row.broth)?.kind === 'broth') || !(row.topping === null || items.get(row.topping)?.kind === 'topping') || !int(row.bulk, 6)) return null; incident = { ...copy(row, ['id', 'type', 'story', 'name', 'targetId', 'hasStaff', 'broth', 'topping', 'bulk']), rolls: [...row.rolls] }; }
+    else if (row.type === 'ride' || row.type === 'flight') { const detail = row.detail; if (!orderIdValid(row.reviewId) || !int(row.rating, 5, 1) || !REVIEW_CAUSES.includes(row.cause) || !detail || typeof detail.dish !== 'string' || detail.dish.length > 80 || typeof detail.topping !== 'string' || detail.topping.length > 80 || !int(detail.spice, 7) || typeof detail.self !== 'string' || detail.self.length > 12 || !finite(row.km, 2, 5) || typeof row.rain !== 'boolean' || (row.type === 'flight' ? !PLANET_IDS.includes(row.planet) : row.planet !== null)) return null; incident = { ...copy(row, ['id', 'type', 'name', 'reviewId', 'rating', 'cause', 'km', 'rain', 'planet']), detail: copy(detail, ['dish', 'topping', 'spice', 'self']) }; }
     else if (row.type === 'stockout') { if (!orderIdValid(row.orderId) || !items.has(row.item) || !(row.alternative === null || row.alternative !== row.item && ['broth', 'topping'].includes(items.get(row.item).kind) && items.get(row.alternative)?.kind === items.get(row.item).kind) || typeof row.buyer !== 'boolean' || !finite(row.roll, 0, 1) || !finite(row.reviewRoll, 0, 1)) return null; incident = copy(row, ['id', 'type', 'name', 'orderId', 'item', 'alternative', 'buyer', 'roll', 'reviewRoll']); }
     else return null;
     incident.options = incidentOptions(incident); if (!incident.options.length) return null; day.pendingIncident = incident;
@@ -800,7 +873,8 @@ function cleanActive(source, state) {
     const current = order.dishes[order.bowlsServed]; if (current.broth !== order.broth || current.spice !== order.spice || current.price !== order.price || current.toppings.join(',') !== order.toppings.join(',')) return null;
     if (order.reviewer !== undefined && typeof order.reviewer !== 'boolean' || order.tea !== undefined && typeof order.tea !== 'boolean' || order.delivery && order.bowlsTotal !== 1) return null;
     if (order.trait != null && !TRAITS.includes(order.trait) || order.changed !== undefined && typeof order.changed !== 'boolean' || order.tourist !== undefined && typeof order.tourist !== 'boolean' || order.self !== undefined && (typeof order.self !== 'string' || order.self.length > 12)) return null;
-    day.orders.push({ ...copy(order, ['id', 'name', 'broth', 'spice', 'price', 'patience', 'maxPatience', 'bowlsTotal', 'bowlsServed', 'mistakes', 'qualityPenalty', 'delivery']), reviewer: order.reviewer ?? false, tea: order.tea ?? false, trait: order.trait ?? null, changed: order.changed ?? false, tourist: order.tourist ?? false, self: order.self ?? 'mình', toppings: [...order.toppings], dishes: order.dishes.map(dish => ({ ...copy(dish, ['broth', 'spice', 'price']), toppings: [...dish.toppings] })) });
+    if (order.persona != null && !PERSONA_IDS.includes(order.persona) || order.far !== undefined && typeof order.far !== 'boolean' || order.planet != null && !PLANET_IDS.includes(order.planet) || (order.far || order.planet) && !order.delivery || order.far && order.planet) return null;
+    day.orders.push({ ...copy(order, ['id', 'name', 'broth', 'spice', 'price', 'patience', 'maxPatience', 'bowlsTotal', 'bowlsServed', 'mistakes', 'qualityPenalty', 'delivery']), reviewer: order.reviewer ?? false, tea: order.tea ?? false, trait: order.trait ?? null, changed: order.changed ?? false, tourist: order.tourist ?? false, self: order.self ?? 'mình', persona: order.persona ?? null, far: order.far ?? false, planet: order.planet ?? null, toppings: [...order.toppings], dishes: order.dishes.map(dish => ({ ...copy(dish, ['broth', 'spice', 'price']), toppings: [...dish.toppings] })) });
   }
   if (source.selectedOrderId !== null && !day.orders.some(order => order.id === source.selectedOrderId)) return null; day.selectedOrderId = source.selectedOrderId;
   if (day.noisyId !== null && !day.orders.some(order => order.id === day.noisyId && !order.delivery)) return null;
@@ -840,7 +914,8 @@ export function loadGame(storage) {
       const batches = []; for (const batch of data.batches[item.id]) { if (!batch || !int(batch.qty, 1e6, 1) || !int(batch.cost, 100000) || !(batch.expiresDay === null && item.expiryDays === null || int(batch.expiresDay, Math.min(1e6, state.day + 10), state.day))) return null; batches.push(copy(batch, ['qty', 'expiresDay', 'cost'])); }
       if (batches.reduce((sum, batch) => sum + batch.qty, 0) !== data.inventory[item.id]) return null; state.batches[item.id] = batches; state.inventory[item.id] = data.inventory[item.id]; state.prices[item.id] = data.prices[item.id];
     }
-    for (const [rows, key] of [[UPGRADES, 'upgrades'], [STAFF, 'staff']]) for (const item of rows) { if (typeof data[key]?.[item.id] !== 'boolean') return null; state[key][item.id] = data[key][item.id]; }
+    // Items added to the catalog after a save was made load as not owned.
+    for (const [rows, key] of [[UPGRADES, 'upgrades'], [STAFF, 'staff']]) for (const item of rows) { const value = data[key]?.[item.id] ?? (LATER_ITEMS.includes(item.id) ? false : undefined); if (typeof value !== 'boolean') return null; state[key][item.id] = value; }
     if (state.upgrades.pot3 && !state.upgrades.pot2) return null;
     for (const key of Object.keys(state.stats)) { if (!int(data.stats?.[key], ['served', 'customers', 'lost', 'mistakes', 'perfect', 'daysPlayed'].includes(key) ? 1e9 : 1e12)) return null; state.stats[key] = data.stats[key]; }
     if (!data.decoration || !Array.isArray(data.decoration.owned) || !data.decoration.owned.every(id => DECORATIONS.some(item => item.id === id)) || new Set(data.decoration.owned).size !== data.decoration.owned.length) return null;

@@ -1,6 +1,6 @@
 # Tiệm Mì Cay — local recreation
 
-An independently written recreation of [aenhatrang.com](https://aenhatrang.com/), with a Vietnamese interface, original SVG illustrations, local fonts and responsive desktop/mobile layouts. Version 2 replaces the earlier simplified rules with a much closer cooking and management simulation. See [PARITY.md](PARITY.md) for the remaining differences and [AUDIT.md](AUDIT.md) for verification.
+An independently written recreation of [aenhatrang.com](https://aenhatrang.com/), with a Vietnamese interface, original SVG illustrations, local fonts and responsive desktop/mobile layouts. Version 2 replaces the earlier simplified rules with a much closer cooking and management simulation. See [docs/PARITY.md](docs/PARITY.md) for the remaining differences and [AUDIT.md](AUDIT.md) for verification.
 
 **Play online:** [Tiệm Mì Cay on GitHub Pages](https://buicongnguyen.github.io/game-shop/).
 
@@ -34,6 +34,15 @@ Use the HTTP server, rather than opening `index.html` as a file. `npm run build`
 - Debts, windfalls and level-ups arrive as cards the next morning. If the till can't cover the minimum restock, the shop can't open until you take a loan or start a fresh shop.
 - Reviews state their cause. You can reply to a review within two days: a polite reply can win a star back, and a rude one costs one.
 - Equipment, staff, decorations and the review histogram are in the management tabs. Sound effects and music are synthesised in the browser, with their own toggles.
+- Every object has its own original illustration:
+  - customers drawn by type, with moods that follow their patience;
+  - staff portraits and a chili-chef mascot;
+  - a pot for each broth;
+  - the bowl drawn from its real contents;
+  - a shop scene that shows the awning, decorations and every upgrade you buy;
+  - a street behind the customers that turns from morning to night and gets rain on rainy days.
+- Once the shop is on the delivery app, a few orders a day are too far for the app's riders. After cooking you ride the scooter yourself, dodging potholes, puddles and cones, or hire a courier. A clean ride earns a bonus and a star.
+- From level 9 a spaceport brings interplanetary orders. Choose how much fuel to load, collect fuel cells on the way, dodge asteroids, debris and comets, and dock at one of five planets.
 - Optional market bargaining, secret-broth memory play and bowl washing add daily activities. A seeded daily challenge runs separately and keeps the main shop intact. Its records are local to this browser.
 
 The game pauses while dialogs are open and when the tab is hidden. Returning to a hidden active game shows an explicit resume dialog. Stock, the bowl, noodle pots, customers and progression persist together. Old version-1 saves are migrated and their original JSON retained as a backup; the version-1 engine never saved unfinished bowls, so that missing old state cannot be recovered.
@@ -66,7 +75,7 @@ GitHub Pages and localhost have separate browser storage. Export a save from the
 
 ## Scope and files
 
-This project has its own code and artwork. It does not use the reference game's source, assets, account system or backend at runtime. It runs locally with no external requests. Online leaderboards, cloud accounts and real-player competition are not connected; remaining offline approximations are listed in [PARITY.md](PARITY.md). Blender and Unity are unnecessary for this 2D browser interface: editable SVGs stay sharp on every screen, weigh about 1 KB per ingredient and take the chosen awning colour. The bowl and cooking pots are drawn from game state, so the bowl shows its real broth, noodles, toppings and chili.
+This project has its own code and artwork. It does not use the reference game's source, assets, account system or backend at runtime. It runs locally with no external requests. Online leaderboards, cloud accounts and real-player competition are not connected; remaining offline approximations are listed in [docs/PARITY.md](docs/PARITY.md). Blender and Unity are unnecessary for this 2D browser interface: editable SVGs stay sharp on every screen, weigh about 1 KB per ingredient and take the chosen awning colour. The bowl and cooking pots are drawn from game state, so the bowl shows its real broth, noodles, toppings and chili.
 
 - `src/game.js`: state, cooking, customers, situations, economy, persistence and validation.
 - `src/situations.js`: the street stories and the effects of each choice.
@@ -74,11 +83,13 @@ This project has its own code and artwork. It does not use the reference game's 
 - `src/audio.js`: Web Audio sound effects and two original music loops, synthesised live.
 - `src/catalog.js`: factual ingredient/equipment/staff/decoration configuration.
 - `src/sidequests.js`: optional daily mini-game state and rules.
+- `src/art/people.js`, `src/art/bowl.js`, `src/art/scene.js`: original art generators for the characters, the kitchen and the shop scene and street (see [docs/ART-STYLE.md](docs/ART-STYLE.md)).
+- `src/ride.js`, `src/planets.js`: the scooter and starship mini-games (canvas), and the planets, fuel and flight rules.
 - `src/app.js`, `src/minigames-ui.js`, `src/ui.js`: interface and controls.
 - `src/style.css`: layout, appearance and responsive behavior for phones, tablets and PCs in one stylesheet.
 - `public/assets/`: original illustrations, local fonts and font licenses.
 - `server.mjs`, `tools/`: local server, build and verification runner.
 - `reference-values.md`: observed rules used for the independent implementation.
-- `PLAN.md`, `PARITY.md`, `AUDIT.md`: execution plan, comparison and findings.
+- `PLAN.md`, `docs/PARITY.md`, `AUDIT.md`: execution plan, parity matrix and findings.
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for reference and font attribution.

@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.mjs",
     "dev": "node server.mjs",
-    "test": "node --test tests/game.test.js tests/sidequests.test.js tests/situations.test.js tests/audio.test.js tests/voice.test.js",
+    "test": "node --test tests/game.test.js tests/sidequests.test.js tests/situations.test.js tests/audio.test.js tests/voice.test.js tests/delivery.test.js tests/art-scene.test.js tests/art-people.test.js tests/art-bowl.test.js tests/ride.test.js",
     "test:browser": "node tools/run-browser.mjs",
     "test:pages": "node tools/run-pages.mjs",
     "test:audit": "node tools/run-browser.mjs",
