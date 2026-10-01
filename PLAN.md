@@ -85,3 +85,51 @@ Remaining differences must be described accurately in `docs/PARITY.md`; a passin
 - The shop scene changes with each decoration and upgrade.
 - Both mini-games are playable by touch and keyboard, pause the shop, survive a reload (the choice dialog reopens), and settle money and stars exactly once.
 - All suites pass, and the fit-the-screen layout contract holds from 320×568 to 1920×1080.
+
+## Round 4 — living details and the missing reference features (2026-10-01)
+
+**Evaluation.** The reference feels alive through many small motions, timed precisely: guests walk in and bob, hearts on a perfect bowl, the strainer scoops noodles with a splash in the broth colour, the bowl flies to the guest, the wallet counts up. It also has features we still lacked: the staff love story with days off, neighbour pranks, a what's-new card, a terms gate and home-screen install. Its street is a flat panel with nothing moving, so the living street is our own addition.
+
+**Steps.**
+1. **Kitchen and customer effects** (`src/fx.js`, `src/fx.css`, new cues in `src/audio.js`):
+   - one pooled, fixed effects layer; animations use transform and opacity only, and pause behind dialogs;
+   - guests walk in, bob, sweat and swell when they are about to leave, then leave as a happy or angry departure ghost;
+   - pots bubble and the flame flickers; hitting the green zone gives a spark burst and a pop;
+   - noodles are scooped with a splash in the broth colour, broth falls as droplets, toppings drop in;
+   - the chili bottle squeezes (flames from level 5, a level-7 caption with a worktop shake);
+   - the bowl flies to the guest, and a wrong dish is thrown back;
+   - the wallet counts up, the combo bounces, and captions mark opening and closing time.
+2. **The living street** (`src/life.js`, `src/life.css`, sprites in `src/art/life.js`):
+   - actors on a 400×220 stage mapped like the backdrop;
+   - sparrows, passers-by (umbrellas in the rain), scooters and a bus on wide screens;
+   - a sunset flock, the lamp flickering on with moths, a rooftop cat, a weekend kite and the shop's pet;
+   - short scenes for street stories;
+   - at most 3 actors on phones and 6 on wide screens, from a seeded cosmetic random stream.
+3. **Kitchen love story:**
+   - three stages with 1, 2 and 3 days off;
+   - refusing has a 65% chance of a 2–3-day walkout, otherwise half pay for two days;
+   - a 200,000₫ wedding gift brings +0.2 buzz on the return day;
+   - absence-aware automation and wages, morning notes, and a pay line per person in the day summary.
+4. **Neighbour pranks:**
+   - six fictional neighbours on our street, labelled as in-game characters;
+   - 3 sends a day, one per neighbour;
+   - surprises arrive at about 18/42/66% of the next day, using the existing street stories (or a haggling guest);
+   - a morning card with "return the favour", and a street board.
+5. **Meta screens and installing:**
+   - a terms gate with our own offline terms;
+   - a what's-new card per version;
+   - install help, with the native prompt when the browser offers one;
+   - an iPhone tip;
+   - a web manifest and icons;
+   - a service worker for offline play that updates only on the prep screen.
+6. **Small interface details:**
+   - the mascot Ớt Hiểm on the sign gives tips (contextual 60% of the time);
+   - sign buttons;
+   - petting the pet in the shop picture;
+   - a 1.2 s choice lock with a progress bar;
+   - dialogs pop in, and tabs slide in;
+   - ride sounds;
+   - short vibrations on phones.
+7. **Originality:** the staff get original names: Chị Quế, Bé Ngò, Bé Nghệ, Cô Hồi, Anh Sả, Bé Tía Tô.
+
+**Acceptance.** Unit and simulation tests for every rule. The browser suites, including new scenarios, stay green. The layout contract holds at all nine sizes with effects running. A browser trace at 390×844 (4× CPU) stays within about 5% of round 3. No requests leave the origin.

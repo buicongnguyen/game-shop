@@ -272,7 +272,6 @@ th:first-child,td:first-child{text-align:left}
 .patience-ring{--ring-color:#8fc86f;display:block;width:46px;height:46px;padding:3px;border-radius:50%;background:conic-gradient(var(--ring-color) var(--patience,100%),#ffffff24 0);box-shadow:0 3px 0 #49243833}
 .patience-ring svg,.patience-ring img{display:block;width:100%;height:100%;border-radius:50%;background:#ffead6}
 .patience-ring{contain:layout paint}
-.customer.urgent .patience-ring{animation:pulse .7s ease-in-out infinite alternate}
 .customer>strong{max-width:100%;margin-top:2px;overflow:hidden;font-size:12.5px;line-height:1.25;white-space:nowrap;text-overflow:ellipsis}
 .customer>small{display:none}
 .customer-status{margin-top:2px;padding:1px 6px;border-radius:6px;background:#ffdd9b;color:#6f4526;font-size:11.5px;font-weight:700;line-height:1.35;white-space:nowrap}
@@ -305,7 +304,7 @@ th:first-child,td:first-child{text-align:left}
 .ticket-main h2{display:flex;align-items:center;gap:6px;font-size:18px;line-height:1.2}
 .ticket-main h2.done::after,.order-toppings>.done::after{content:'✓';display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--green);color:#fff;font-family:var(--font);font-size:11px;font-weight:700;flex:none}
 .ticket-main p{font-size:12.5px;color:var(--muted)}
-.tea-button{display:inline-flex;align-items:center;gap:4px;flex:none;min-height:40px;padding:4px 11px;border:1px solid #b9d4a6;border-radius:20px;background:#eaf6df;color:#3f6b35;font-size:12.5px;font-weight:700;white-space:nowrap;animation:pulse .9s ease-in-out infinite alternate}
+.tea-button{display:inline-flex;align-items:center;gap:4px;flex:none;min-height:40px;padding:4px 11px;border:1px solid #b9d4a6;border-radius:20px;background:#eaf6df;color:#3f6b35;font-size:12.5px;font-weight:700;white-space:nowrap}
 .tea-button small{font-size:11px;font-weight:600;opacity:.8}
 .dark .tea-button{background:#34483a;border-color:#5c7a57;color:#cfe8c0}
 .spice-stamp{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none;width:46px;height:46px;border:1.5px dashed #eab79e;border-radius:10px;background:#fff0e5;color:#ae392d;font-size:9px;font-weight:700;letter-spacing:1px;line-height:1.1;transform:rotate(5deg)}
@@ -320,7 +319,7 @@ th:first-child,td:first-child{text-align:left}
 .order-toppings>.done{background:var(--mint);color:var(--green-dark)}
 .order-toppings>.done::after{width:16px;height:16px;font-size:10px}
 .ticket-patience{height:5px;margin-top:8px;border-radius:4px;background:var(--tint-3);overflow:hidden}
-.ticket-patience>span{display:block;height:100%;border-radius:inherit;background:#9fb865;transition:width .2s linear}
+.ticket-patience>span{display:block;width:100%;height:100%;border-radius:inherit;background:#9fb865;transform-origin:0 50%;transition:transform .2s linear}
 .ticket-patience.low>span{background:#ec7a52}
 .patience-copy{display:none;margin-top:4px;font-size:12px;color:var(--muted)}
 .ticket-empty{display:flex;align-items:center;gap:10px;min-height:56px}
@@ -347,7 +346,7 @@ th:first-child,td:first-child{text-align:left}
 .pot-button.slow::after{content:'🔥 lửa yếu';position:absolute;top:-8px;right:6px;padding:1px 6px;border-radius:8px;background:#fff3d6;color:#9a5a20;font-size:10.5px;font-weight:800;box-shadow:0 1px 0 #0002;pointer-events:none}
 .pot-button.stage-ideal{border-color:#8dbb74;box-shadow:0 0 0 2px #8dbb7455}
 .pot-button.stage-soft{border-color:#e39a62}
-.pot-button.stage-danger{border-color:var(--coral);animation:pulse .45s ease-in-out infinite alternate}
+.pot-button.stage-danger{border-color:var(--coral)}
 .cook-gauge{position:relative;display:grid;grid-template-columns:50fr 28fr 22fr;width:100%;height:10px;border-radius:5px}
 .cook-gauge i:nth-child(1){background:#e6c688;border-radius:5px 0 0 5px}
 .cook-gauge i:nth-child(2){background:#78ae69}
@@ -516,7 +515,7 @@ progress::-moz-progress-bar{background:#6fae62;border-radius:6px}
 .ingredient-button.empty{border-style:dashed;background:var(--tint)}
 .ingredient-button.empty .food-icon{opacity:.45;filter:grayscale(.6)}
 .ingredient-button.empty small{color:var(--coral);font-weight:700}
-.top-clock.warn{background:#ef4b3f;color:#fff;animation:pulse .8s ease-in-out infinite alternate}
+.top-clock.warn{background:#ef4b3f;color:#fff}
 .shake{animation:shake .4s ease-in-out}
 .float-text{position:fixed;z-index:120;font-size:18px;font-weight:800;color:#2f8f4e;text-shadow:0 2px 0 #fff;pointer-events:none;transform:translate(-50%,-100%);animation:float-up 1.1s ease-out forwards}
 .float-text.tone-bad{color:#d8321f}
@@ -628,7 +627,6 @@ body:has(.play) #toast{bottom:calc(72px + env(safe-area-inset-bottom))}
 body:has(.prep) #toast{bottom:calc(118px + env(safe-area-inset-bottom))}
 
 @keyframes steam{from{transform:translateY(1px)}to{transform:translateY(-2px);opacity:.45}}
-@keyframes pulse{to{box-shadow:0 0 0 3px #ef4b3f66}}
 @keyframes float{50%{transform:translateY(-4px)}}
 .reduced-motion *,.reduced-motion *::before,.reduced-motion *::after{animation:none!important;transition:none!important}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
@@ -915,3 +913,153 @@ body:has(.prep) #toast{bottom:calc(118px + env(safe-area-inset-bottom))}
   .ingredient-button{min-height:76px}
   .tool{min-height:46px}
 }
+
+/* ---- Round 4: small living details on the interface side (the play-screen effects live in fx.css and life.css). */
+/* Dialogs pop in (0.2 s, as in the reference). Opacity only on the dialog itself, so fixed confetti inside it
+   keeps the viewport as its frame; its children rise into place (a slide, not a scale, so every control keeps its
+   finger size from the first frame), and only when the dialog opens. */
+dialog[open]{animation:dialog-in .2s ease-out}
+dialog.popping>:not(.confetti){animation:dialog-pop .22s cubic-bezier(.3,1.4,.6,1)}
+@keyframes dialog-in{from{opacity:0}}
+@keyframes dialog-pop{from{transform:translateY(10px)}}
+/* The situation lock: a chili-red bar runs out across the choices for 1.2 s. */
+.modal-actions{position:relative}
+#dialog.choice-lock .modal-actions::before{content:'';position:absolute;left:0;right:0;top:-1px;height:3px;background:var(--coral);transform-origin:left;transform:scaleX(0);animation:lock-bar 1.2s linear}
+@keyframes lock-bar{from{transform:scaleX(1)}}
+/* Prep tabs slide in when the tab changes (not on every repaint). */
+.tab-panel.tab-in{animation:tab-in .25s ease-out}
+@keyframes tab-in{from{opacity:0;transform:translateY(8px)}}
+/* The mascot breathes on cards. */
+.hero-mascot>svg{transform-origin:50% 100%;animation:mascot-bob 2.2s ease-in-out infinite alternate}
+@keyframes mascot-bob{to{transform:translateY(-3px) scaleY(1.01)}}
+/* The sign: quick pills and Ớt Hiểm, who gives tips when tapped. */
+/* Phones: the row runs under the sign and the picture, inside the red header. Wide screens: between the sign and the picture. */
+.sign-row{grid-column:1/-1;display:flex;align-items:flex-end;gap:8px;margin-top:2px}
+.sign-pills{display:flex;flex-wrap:wrap;gap:5px;flex:1;min-width:0}
+.sign-pill{display:inline-flex;align-items:center;gap:4px;min-height:32px;padding:4px 9px;border:0;border-radius:999px;background:#0000002e;color:#fff;font:inherit;font-size:12px;font-weight:700;line-height:1.1;cursor:pointer;transition:transform .12s}
+.sign-pill:hover{background:#00000040}
+.sign-pill:active{transform:scale(.94)}
+.sign-pill span{color:#ffe192}
+.sign-mascot{flex:none;width:46px;height:50px;margin:-8px -4px -6px 0;padding:0;border:0;border-radius:12px;background:none;cursor:pointer}
+.sign-mascot-art{display:block;width:100%;height:100%;object-fit:contain;transform-origin:50% 100%;animation:mascot-bob 2.6s ease-in-out infinite alternate;filter:drop-shadow(0 3px 2px #3a101c33)}
+.sign-mascot:focus-visible{outline:3px solid #ffe192;outline-offset:2px}
+/* Tips arrive as a speech bubble with the mascot's head. */
+.toast-item.tone-tip{display:flex;align-items:center;gap:8px;padding-left:10px;border-color:#ffd38a66;background:#4b2a3cf5;text-align:left;border-bottom-left-radius:4px}
+.toast-item.tone-tip::before{content:'';flex:none;width:26px;height:28px;background:var(--mascot-icon) center/contain no-repeat}
+/* Guests' barks (up to 32 characters) are far wider than a seat: the outer seats' bubbles grow inwards, so the
+   street's rounded edge never cuts their words, and every bubble rises in place (the translate property, which adds
+   to the centring transform) instead of sliding in sideways from the seat's middle. A bubble lies over the next
+   seats' faces, so it lets taps through: a tap on a face selects that guest, not the one talking. */
+.speech{pointer-events:none;animation-name:speech-in}
+@keyframes speech-in{from{opacity:0;translate:0 8px}}
+.customer-lane>.customer:first-child .speech{left:0;transform:none}
+.customer-lane>.customer:last-child .speech{left:auto;right:0;transform:none}
+/* Petting the pet in the shop picture. */
+/* Placed by its top-left corner: a translate() on this overlay made Chrome send real taps to the picture underneath
+   when animations are off, although elementFromPoint still found the button. */
+.pet-tap{position:absolute;z-index:1;min-width:36px;min-height:36px;padding:0;border:0;border-radius:50%;background:none;cursor:pointer}
+.pet-tap:focus-visible{outline:3px solid #ffe192}
+.pet-tap.pet-cat{left:66%;top:73%;width:18%;height:14%}
+.pet-tap.pet-dog{left:56%;top:72%;width:14%;height:16%}
+.pet-tap.pet-hamster{left:8%;top:55.5%;width:10%;height:11%}
+/* The pet hops and squashes about its own feet: an SVG group otherwise scales about the picture's top-left corner,
+   which lifted the pet on the squash and flattened the jump. */
+.prep-illustration [data-layer^="pet-"]{transform-box:fill-box;transform-origin:50% 100%}
+@media (min-width:900px) and (min-height:560px){
+  .shop-hero>.sign-row{order:2;align-items:center;margin:10px 4px 0}
+  .shop-hero>.scene-wrap{order:3}
+  .sign-pill{min-height:34px;padding:5px 13px;background:var(--awning);box-shadow:0 3px 0 var(--awning-shadow);font-size:12.5px}
+  .sign-pill:hover{background:var(--awning-shadow)}
+  .sign-mascot{width:62px;height:68px;margin:-12px 0 -18px}
+  /* A short wide window (1366×657 under browser bars, 1024×600): the hero keeps its content height and the column
+     scrolls under the pinned dock, instead of the pills and the picture spilling over the day card, its event and
+     the update pill. A smaller least picture keeps that scroll short. */
+  .shop-hero{min-height:auto}
+  .scene-wrap{min-height:100px}
+}
+/* Story cards: the love story's medallion, a chili-red tag and a hint line under each choice. */
+.drama-medallion{width:84px;height:84px;margin:0 auto 6px}
+.drama-medallion>svg{display:block;width:100%;height:100%}
+.drama-tag{display:table;margin:0 auto 4px;padding:3px 10px;border-radius:999px;background:var(--coral);color:#fff;font-size:11px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;text-align:center;text-wrap:balance}
+.modal-actions.stacked{flex-direction:column}
+.modal-actions.stacked>*{flex:none;width:100%}
+.modal-actions button.with-hint{display:flex;flex-direction:column;align-items:center;gap:2px;padding-top:9px;padding-bottom:9px;line-height:1.25}
+.choice-hint{display:block;font-size:12px;font-weight:600;color:var(--ink-2)}
+.primary .choice-hint{color:#fff;opacity:.95}
+/* Short landscape phones (844×390, 568×320): three full-width hint buttons left the love story's text no room at all
+   (the body shrank to the medallion), so there the choices sit side by side and the medallion shrinks. */
+@media (max-height:640px){.drama-medallion{width:48px;height:48px;margin-bottom:2px}}
+@media (orientation:landscape) and (max-height:500px){
+  .modal-actions.stacked{flex-direction:row;align-items:stretch}
+  .modal-actions.stacked>*{flex:1 1 0;width:auto;min-width:0}
+  .modal-actions button.with-hint{justify-content:flex-start;padding-left:10px;padding-right:10px}
+}
+@media (orientation:landscape) and (max-height:360px){.drama-medallion{display:none}}
+/* Morning surprises and the neighbours' board. */
+.gift-list{margin:4px 0 8px;padding:0;list-style:none}
+.gift-list li{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:14px;color:var(--ink-2)}
+.gift-mark{flex:none;font-size:18px;line-height:1.2}
+.prank-quota{margin:6px 0 10px;font-size:14px}
+.prank-quota b{font-size:17px;color:var(--coral)}
+.neighbour-head{margin:12px 0 6px;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--coral-dark)}
+.neighbour-row{display:flex;align-items:center;gap:10px;margin:0 0 6px;padding:7px 10px;border-radius:13px;background:var(--tint)}
+.neighbour-row.you{background:var(--mint);outline:1px solid var(--mint-line)}
+.neighbour-row>img{flex:none;width:38px;height:38px;border-radius:50%;background:var(--tint-3);object-fit:contain}
+.neighbour-row>div{flex:1;min-width:0}
+.neighbour-row strong{display:block;font-size:14px;overflow-wrap:anywhere}
+.neighbour-row small{display:block;font-size:11.5px;color:var(--muted)}
+.board-rank{flex:none;width:20px;font-family:var(--display);font-size:15px;text-align:center;color:var(--coral-dark)}
+.prank-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.prank-tile{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 8px;border:2px solid;border-radius:15px;font:inherit;color:var(--ink);cursor:pointer;transition:transform .12s}
+.prank-tile:active{transform:scale(.95)}
+.prank-tile.naughty{border-color:#f28ab2;background:#fff0f5}
+.prank-tile.nice{border-color:#8fc86f;background:#f0f9ea}
+.prank-tile svg{width:42px;height:42px}
+.prank-tile strong{font-size:13.5px}
+.prank-tile small{font-size:11px;line-height:1.3;color:var(--muted);text-align:center}
+:root.dark .prank-tile.naughty{background:#4a2a36}
+:root.dark .prank-tile.nice{background:#2e4232}
+.wage-lines{font-size:12.5px!important;color:var(--muted)!important}
+.staff-away{color:var(--coral-dark);font-weight:700}
+/* --coral-dark stays dark in the dark theme (2.2:1 on its cards): these labels take a light coral there (7:1). */
+:root.dark .staff-away,:root.dark .neighbour-head,:root.dark .board-rank,:root.dark .update-pill{color:#ffb3a8}
+:root.dark .prank-quota b{color:#ff8f80}
+/* Settings links and the update pill (offered on the prep screen only). */
+.settings-links{display:grid;gap:8px;margin:12px 0 4px}
+.settings-links .secondary{justify-content:flex-start;text-align:left}
+.update-pill{display:block;width:100%;margin:8px 0 2px;padding:8px 12px;border:1px dashed var(--coral);border-radius:12px;background:var(--tint);color:var(--coral-dark);font:inherit;font-size:13px;font-weight:800;cursor:pointer}
+/* Meta screens (src/meta-ui.js): terms gate, what's new, install help */
+.modal-content>.meta-updated{margin:0 0 6px;font-size:12px;font-weight:700;color:var(--muted)}
+.meta-terms{display:grid;gap:12px;margin:12px 0 4px;padding:0;list-style:none;counter-reset:meta-term}
+.meta-terms>li{counter-increment:meta-term}
+.meta-terms h3{display:flex;align-items:center;gap:8px;font-size:14.5px}
+.meta-terms h3::before{content:counter(meta-term);display:grid;place-items:center;flex:none;width:24px;height:24px;border-radius:50%;background:var(--coral);color:#fff;font:13px/1 var(--display)}
+.meta-terms p{margin:3px 0 0 32px;font-size:13.5px;line-height:1.6;color:var(--ink-2)}
+.meta-terms a{color:var(--coral-dark);font-weight:700;overflow-wrap:anywhere}
+.dark .meta-terms a{color:#ffa99b}
+dialog[data-locked] .modal-content:focus{outline:none}
+.modal-actions>.meta-agree{flex:3 1 220px;display:flex;align-items:center;gap:10px;min-height:44px;font-size:13.5px;font-weight:700;line-height:1.35;cursor:pointer}
+.meta-agree input{appearance:none;-webkit-appearance:none;display:grid;place-items:center;flex:none;width:26px;height:26px;min-height:0;margin:0;padding:0;border:2px solid var(--line-strong);border-radius:8px;background:var(--paper);cursor:pointer}
+.meta-agree input::after{content:'';width:7px;height:13px;margin-top:-3px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg) scale(0);transition:transform .12s}
+.meta-agree input:checked{border-color:var(--green-dark);background:var(--green)}
+.meta-agree input:checked::after{transform:rotate(45deg) scale(1)}
+.modal-actions>.meta-act{flex:1 1 auto;padding-left:12px;padding-right:12px}
+.modal-actions>.meta-act.primary{flex-grow:2}
+.modal-content>.meta-accepted{margin:0 0 10px;padding:8px 12px;border:1px solid var(--mint-line);border-radius:12px;background:var(--mint);color:var(--ink);font-size:13px;font-weight:700}
+.modal-content>.meta-accepted.is-pending{border-color:var(--warn-line);background:var(--warn-bg);color:var(--warn-ink)}
+.meta-bob{animation:meta-bob 1.7s ease-in-out infinite alternate}
+@keyframes meta-bob{from{transform:translateY(2px)}to{transform:translateY(-5px)}}
+.meta-balance{text-wrap:balance}
+.meta-news{display:grid;gap:7px;margin:10px 0 2px;padding:0;list-style:none}
+.meta-news li{position:relative;padding:8px 12px 8px 30px;border-radius:12px;background:var(--tint);font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+.meta-news li::before{content:'';position:absolute;left:12px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--coral)}
+.meta-news strong{color:var(--ink)}
+.meta-steps{display:grid;gap:10px;margin:12px 0 4px;padding:0;list-style:none}
+.meta-step{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:start;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;background:var(--tint)}
+.meta-step.is-current{border-color:var(--warn-line);background:var(--warn-bg)}
+.meta-tile{width:40px;height:40px}
+.meta-step h3{font-size:14px}
+.meta-step p{margin:3px 0 0;font-size:13px;line-height:1.55;color:var(--ink-2)}
+.meta-chip{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--coral);color:#fff;font-size:11px;font-weight:700;vertical-align:1px;white-space:nowrap}
+.modal-content>.meta-note{padding:10px 12px;border:1px solid var(--mint-line);border-radius:12px;background:var(--mint);color:var(--ink)}
+.meta-ios-tip svg{display:inline-block;width:16px;height:16px;margin:0 2px;vertical-align:-3px}

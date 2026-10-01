@@ -555,3 +555,134 @@ export function customerAnswer({ tone, stars, random = Math.random } = {}) {
   const lines = ANSWERS[tone === 'polite' || tone === 'rude' ? tone : 'neutral'];
   return pick(random, lines[band(clampStars(stars))]);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Barks: one short line a guest says out loud (a speech bubble) at a moment of the visit.
+//   greet: sitting down · hurry: patience turning red · thanks / thanksGreat: served (5★ for the latter)
+//   angry: walking out · wrong: served the wrong dish · tea: thanks for the iced tea · spicy: a bowl of spice 6+
+// Students talk casually, aunties warmly, uncles gruff and funny; tourists in simple English and astronauts in
+// space talk. Placeholders: {self} {Self} (how the guest calls themselves) and {spice}.
+
+export const BARK_KINDS = Object.freeze(['greet', 'hurry', 'thanks', 'thanksGreat', 'angry', 'wrong', 'tea', 'spicy']);
+const BARK_MAX = 32;
+const BARK_SELF = { student: 'em', 'young-man': 'anh', 'young-woman': 'chị', regular: 'mình', auntie: 'cô', uncle: 'chú', pair: 'tụi mình', gentleman: 'tôi', tourist: 'I', astronaut: 'tôi' };
+const BARKS = {
+  default: {
+    greet: ['Cho {self} một tô nha!', 'Quán ơi, còn bàn không?', 'Thơm quá, vào ăn thôi!', 'Hôm nay phải ăn mì cay!'],
+    hurry: ['Lâu quá vậy quán ơi…', 'Mì của {self} đâu rồi?', 'Sắp đói xỉu rồi nè!', 'Nhanh giùm {self} với!'],
+    thanks: ['Cảm ơn quán nha!', 'Ngon đó, cảm ơn nhé!', 'No căng rồi, cảm ơn!'],
+    thanksGreat: ['Ngon xuất sắc luôn!', 'Mai {self} quay lại nữa!', 'Mười điểm không có nhưng!', 'Đúng vị, mê thật sự!'],
+    angry: ['Thôi, {self} đi quán khác!', 'Đợi hoài, về thôi!', 'Chờ mệt quá rồi đó!'],
+    wrong: ['Ơ, {self} đâu gọi món này?', 'Hình như nhầm món rồi!', 'Sai món rồi quán ơi!'],
+    tea: ['Trà đá mát ghê, cảm ơn!', 'Ly trà cứu {self} rồi!', 'Cảm ơn ly trà nha!'],
+    spicy: ['Cay cấp {spice}, xé lưỡi luôn!', 'Cay mà ghiền quá trời!', 'Nước đâu, cay quá!'],
+  },
+  student: {
+    greet: ['Quán ơi, cho em một tô!', 'Tan học rồi, ăn mì thôi!', 'Em tới rồi nè quán ơi!'],
+    hurry: ['Em sắp trễ học thêm rồi!', 'Nhanh xíu nha anh chị ơi!', 'Bụng em kêu ọt ọt rồi…'],
+    thanks: ['Ngon nha, cảm ơn quán!', 'Dzui ghê, cảm ơn nhaa!', 'Ăn xong có sức học bài!'],
+    thanksGreat: ['Đỉnh nóc kịch trần luôn!', 'Ngon xỉu, mai em rủ bạn!', 'Mười điểm cho quán nha!'],
+    angry: ['Thôi em đi uống trà sữa!', 'Chờ lâu quá, em về đây!', 'Hết giờ ra chơi rồi…'],
+    wrong: ['Ủa, em đâu gọi món này?', 'Nhầm món rồi anh chị ơi!'],
+    tea: ['Trà đá free, quán xịn ghê!', 'Cảm ơn ly trà nhaa!'],
+    spicy: ['Cay cấp {spice}, khóc luôn á!', 'Cay mà cuốn dữ trời!'],
+  },
+  'young-man': {
+    greet: ['Cho anh một tô nha em!', 'Tan ca rồi, làm tô mì!'],
+    hurry: ['Anh sắp vào ca rồi em ơi!', 'Lẹ giùm anh nha em!'],
+    thanks: ['Ngon nha, cảm ơn em!', 'Ổn áp, cảm ơn quán!'],
+    thanksGreat: ['Quá đã, anh ghé hoài!', 'Đúng vị luôn, mười điểm!'],
+    angry: ['Thôi anh đi, đợi lâu quá!', 'Hết giờ nghỉ trưa rồi…'],
+    wrong: ['Em ơi, anh gọi món khác!', 'Ơ, nhầm món rồi em!'],
+    tea: ['Trà mát, cảm ơn em nha!'],
+    spicy: ['Cay cấp {spice}, quá chất!', 'Cay mà phê quá em ơi!'],
+  },
+  'young-woman': {
+    greet: ['Cho chị một tô nha em!', 'Ui thơm quá, vô ăn thôi!'],
+    hurry: ['Chị gấp lắm rồi em ơi!', 'Sắp tới giờ họp rồi nè…'],
+    thanks: ['Cảm ơn em, ngon lắm!', 'Vừa miệng ghê, cảm ơn!'],
+    thanksGreat: ['Ngon xỉu, chị review liền!', 'Mê quá, mai chị quay lại!'],
+    angry: ['Thôi chị về, lâu quá!', 'Chờ nãy giờ mỏi cổ luôn!'],
+    wrong: ['Ủa em, chị đâu gọi món này?', 'Nhầm món rồi em ơi!'],
+    tea: ['Cảm ơn em, mát ghê!', 'Ly trà xinh xỉu luôn!'],
+    spicy: ['Cay muốn xỉu luôn á!', 'Cay cấp {spice}, phê ghê!'],
+  },
+  auntie: {
+    greet: ['Cô ăn một tô nghen con!', 'Thơm quá, cho cô một tô!', 'Con ơi, còn chỗ cho cô hông?'],
+    hurry: ['Từ từ cũng được nghen con…', 'Cô hơi đói rồi nghen!', 'Mì của cô sắp có chưa con?'],
+    thanks: ['Ngon lắm, cảm ơn con nghen!', 'Con nấu khéo ghê!', 'Cô cảm ơn con nhiều nha!'],
+    thanksGreat: ['Ngon như mẹ nấu vậy đó!', 'Cô sẽ dắt cả xóm tới!', 'Trời ơi, ngon dữ thần!'],
+    angry: ['Thôi cô về nấu cơm vậy…', 'Cô chờ không nổi nữa rồi.'],
+    wrong: ['Con ơi, cô gọi món khác mà!', 'Hình như con lộn món rồi!'],
+    tea: ['Cảm ơn con, trà mát ghê!', 'Con dễ thương quá trời!'],
+    spicy: ['Cay vầy cô chịu sao nổi!', 'Cay cấp {spice} mà ngon ghê!'],
+  },
+  uncle: {
+    greet: ['Một tô, cay cho đã nghe!', 'Chú tới rồi, nấu lẹ đi!', 'Đói như hồi còn đi lính!'],
+    hurry: ['Mì đi đường vòng hả con?', 'Chú già thêm một tuổi rồi!', 'Lẹ lẹ cái coi, đói rồi!'],
+    thanks: ['Được đó, khá lắm con!', 'Ừ, ngon. Chú cảm ơn!', 'Ăn được, ăn được!'],
+    thanksGreat: ['Hảo hạng! Chú ghé hoài!', 'Ngon hơn bà xã nấu nha!', 'Tay nghề này đáng huy chương!'],
+    angry: ['Thôi, chú đi nhậu luôn!', 'Đợi tới Tết chắc? Về!'],
+    wrong: ['Ê, chú đâu có gọi món này!', 'Lộn món rồi con ơi!'],
+    tea: ['Trà đá hả? Được lắm!', 'Ly trà này chú ghi nhận!'],
+    spicy: ['Cay vậy mới đáng đồng tiền!', 'Cấp {spice}? Chuyện nhỏ với chú!'],
+  },
+  pair: {
+    greet: ['Hai đứa tụi mình ăn nha!', 'Hẹn hò bằng mì cay nè!'],
+    hurry: ['Tụi mình đói meo rồi nè!', 'Ngồi đếm xe nãy giờ á!'],
+    thanks: ['Tụi mình cảm ơn quán nha!', 'Ngon, hai đứa ưng lắm!'],
+    thanksGreat: ['Quán ruột của hai đứa đây!', 'Ngon tới mức quên cãi nhau!'],
+    angry: ['Thôi, tụi mình đi chỗ khác!', 'Hẹn hò mà đói thế này…'],
+    wrong: ['Ơ, tụi mình gọi món khác mà!'],
+    tea: ['Trà mát, tụi mình cảm ơn!'],
+    spicy: ['Cay tới mức nắm tay luôn!', 'Cay cấp {spice}, hai đứa đỏ mặt!'],
+  },
+  gentleman: {
+    greet: ['Cho tôi một tô, cảm ơn.', 'Chào quán, tôi dùng mì.'],
+    hurry: ['Tôi chờ hơi lâu rồi đấy.', 'Quán còn nhớ tô của tôi chứ?'],
+    thanks: ['Vừa vặn. Cảm ơn quán.', 'Khá lắm, cảm ơn cháu.'],
+    thanksGreat: ['Tuyệt hảo. Tôi sẽ quay lại.', 'Đúng vị xưa. Rất khen!'],
+    angry: ['Tôi xin phép về trước.', 'Thật đáng thất vọng.'],
+    wrong: ['Hình như nhầm món của tôi.', 'Cháu ơi, tôi gọi món khác.'],
+    tea: ['Chu đáo lắm, cảm ơn cháu.'],
+    spicy: ['Cay thế này, tôi trẻ lại!', 'Cấp {spice}… tôi còn chịu được.'],
+  },
+  tourist: {
+    greet: ['Hello! One bowl, please!', 'Hi! It smells so good!', 'Xin chào! Noodles please!'],
+    hurry: ['Is my bowl coming?', 'So hungry… please!', 'Still waiting, my friend!'],
+    thanks: ['Thank you, delicious!', 'Cảm ơn! Very good!', 'Yummy, thank you!'],
+    thanksGreat: ['Wow! Best noodles ever!', 'Amazing! 10 out of 10!', 'Perfect! I come back!'],
+    angry: ['Sorry, too long. Bye!', 'Too slow, I go now!'],
+    wrong: ['Hmm, not my order?', 'Oops, wrong bowl!'],
+    tea: ['Iced tea? So kind, thanks!', 'Cảm ơn! Nice tea!'],
+    spicy: ['Spicy! Water please!', 'Level {spice}?! So hot!', 'Hot hot hot! Love it!'],
+  },
+  astronaut: {
+    greet: ['Tàu đã cập bến, một tô!', 'Xin phép hạ cánh ăn mì!'],
+    hurry: ['Oxy sắp cạn rồi quán ơi!', 'Tô mì còn ở quỹ đạo à?'],
+    thanks: ['Nhận hàng thành công!', 'Ngon hơn đồ ăn đóng tuýp!'],
+    thanksGreat: ['Ngon vượt dải Ngân Hà!', 'Năm sao, đúng nghĩa đen!'],
+    angry: ['Hủy nhiệm vụ, quay về!', 'Hết kiên nhẫn, cất cánh!'],
+    wrong: ['Sai tọa độ món rồi!', 'Món này lạc quỹ đạo rồi!'],
+    tea: ['Trà đá không trọng lực!', 'Nạp năng lượng thành công!'],
+    spicy: ['Cay như lõi mặt trời!', 'Cấp {spice}! Động cơ đỏ lửa!'],
+  },
+};
+
+/** A short spoken line (at most 32 characters) for a moment of the visit; '' for an unknown kind.
+ * One draw from `random` picks the line, so a seeded `random` always gives the same bark. */
+export function bark(kind, { persona = 'regular', self, name, spice, random = Math.random } = {}) {
+  if (!BARK_KINDS.includes(kind)) return '';
+  const lines = (Object.hasOwn(BARKS, persona) ? BARKS[persona] : BARKS.default)[kind] || BARKS.default[kind];
+  // Own keys only: a persona such as 'constructor' must not pick up an inherited property.
+  const who = clip(clean(self) || (Object.hasOwn(BARK_SELF, persona) ? BARK_SELF[persona] : '') || 'mình', 12), level = Math.round(Number(spice));
+  const values = { self: who, Self: cap(who), spice: Number.isFinite(level) && level > 0 ? String(Math.min(level, 99)) : '' };
+  const filled = lines.map(line => usable(line, values) ? tidy(fill(line, values)).normalize('NFC') : '');
+  const start = Math.floor(roll(random) * lines.length);
+  for (let step = 0; step < lines.length; step++) {
+    const line = filled[(start + step) % lines.length];
+    if (line && line.length <= BARK_MAX) return line;
+  }
+  // A very long self word: fall back to the generic lines without placeholders.
+  return BARKS.default[kind].find(line => !line.includes('{') && line.length <= BARK_MAX) || '';
+}

@@ -767,17 +767,17 @@ export function customerFace({ persona = 'regular', seed = 0, mood = 'neutral', 
 // Staff: fixed designs, one per STAFF id in src/catalog.js plus the market seller.
 
 const STAFF_SPECS = {
-  // Chị Mận, the cashier: plum vest, pen behind her ear.
+  // Chị Quế, the cashier: plum vest, pen behind her ear.
   cashier: { skinIndex: 1, fem: true, age: 'adult', style: 'pony', hair: HAIR.dark, accent: C.plum[0], top: { kind: 'vest', col: C.plum }, extras: ['pen', 'earrings'], earring: C.yellow[0], back: BACKS.pink },
-  // Bé Na, the noodle cook: chef's toque and a green apron.
+  // Bé Ngò (coriander), the noodle cook: chef's toque and a green apron.
   chef: { skinIndex: 0, fem: true, age: 'teen', style: 'bob', hair: HAIR.black, top: { kind: 'apron', col: C.orange, apron: C.green, pocket: true }, hat: { kind: 'toque' }, extras: [], back: BACKS.yellow },
-  // Bé Mít, the waiter: spiky hair, red bow tie, jackfruit-yellow straps.
+  // Bé Nghệ (turmeric), the waiter: spiky hair, red bow tie, yellow straps.
   waiter: { skinIndex: 2, fem: false, age: 'teen', style: 'spiky', hair: HAIR.dark, top: { kind: 'uniform', neckwear: 'bow', neck: C.red, strap: C.yellow }, extras: [], back: BACKS.coral },
-  // Cô Chôm, the market-goer: nón lá with a pink strap, rambutan-red blouse, basket strap.
+  // Cô Hồi (star anise), the market-goer: nón lá with a pink strap, red blouse, basket strap.
   buyer: { skinIndex: 2, fem: true, age: 'mid', style: 'bun', hair: HAIR.black, top: { kind: 'blouse', col: C.red, dots: C.yellow[0] }, hat: { kind: 'nonla', col: ['#f6d27a', '#d6a748'], strap: C.pink[0] }, extras: ['basket'], back: BACKS.peach },
-  // Anh Hấu, the broth cook: watermelon colours, bandana, towel on his shoulder.
+  // Anh Sả (lemongrass), the broth cook: green tee, red bandana, towel on his shoulder.
   broth: { skinIndex: 3, fem: false, age: 'adult', style: 'crop', hair: HAIR.black, top: { kind: 'tee', col: C.green }, hat: { kind: 'bandana', col: C.red }, extras: ['towel'], back: BACKS.orange },
-  // Bé Ổi, the topping helper: guava pink and green, hair clips, gloves up and ready.
+  // Bé Tía Tô (perilla), the topping helper: pink and mint, hair clips, gloves up and ready.
   topping: { skinIndex: 1, fem: true, age: 'teen', style: 'pigtails', hair: HAIR.brown, accent: C.mint[0], top: { kind: 'apron', col: C.pink, apron: C.mint }, extras: ['clip2', 'gloves'], gear: C.sky[0], back: BACKS.pink },
   // The vegetable seller of the bargaining mini-game: headscarf, hoops, greens and a carrot.
   market: { skinIndex: 3, fem: true, age: 'mid', style: 'bun', hair: HAIR.black, top: { kind: 'blouse', col: C.teal, dots: C.yellow[0] }, hat: { kind: 'scarf', col: C.orange }, extras: ['hoops', 'greens'], earring: C.yellow[0], lips: C.red[1], back: BACKS.yellow },

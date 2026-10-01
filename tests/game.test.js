@@ -286,3 +286,46 @@ test('reviewer visits are exempt from random payment incidents', () => {
   const result = g.serveBowl(state, sequence([.5, .01]));
   assert.equal(result.incident, null); assert.equal(state.activeDay.incidentCount, 0);
 });
+
+test('what’s new: new shops are up to date, older saves see the card once', () => {
+  const state = g.createGame('Tiệm tin mới'); assert.equal(state.lastNews, g.NEWS_VERSION); assert.equal(g.NEWS_VERSION, 4);
+  const old = JSON.parse(JSON.stringify(state)); delete old.lastNews; const loaded = restore(old);
+  assert.equal(loaded.lastNews, 0); assert.equal(g.markNewsSeen(loaded), 0); assert.equal(loaded.lastNews, g.NEWS_VERSION);
+  assert.equal(g.markNewsSeen(loaded), g.NEWS_VERSION, 'seen already'); assert.deepEqual(restore(loaded), loaded);
+  for (const bad of [5, -1, 1.5, '4']) { const data = JSON.parse(JSON.stringify(state)); data.lastNews = bad; assert.equal(restore(data), null, String(bad)); }
+  const v1 = { version: 1, name: 'Tiệm cũ', money: 100000, day: 3, reputation: 4, inventory: { noodles: 0, broth: 0, beef: 0, seafood: 0, mushroom: 0, greens: 0, egg: 0, kimchi: 0 }, upgrades: {}, staff: {}, stats: {}, settings: {}, pendingExpenses: 0, reviews: [], history: [], phase: 'prep', nextOrderId: 1 };
+  assert.equal(restore(v1).lastNews, 0, 'a migrated player sees the card');
+  assert.equal(g.newShopFrom(loaded).lastNews, g.NEWS_VERSION);
+});
+
+test('notices carry a kind and its data for the interface, and never enter the save', () => {
+  const kinds = () => g.takeNotices().filter(note => note.kind);
+  const state = opened(); state.xp = 8000; state.money = 3000000; state.activeDay.nextArrival = 999; g.takeNotices();
+  assert.equal(g.startPot(state).ok, true); g.tickDay(state, 5.3, constant);
+  assert.deepEqual(kinds().map(note => [note.kind, note.pot, note.cue]), [['potBurn', 0, 'potBurn']]);
+  const order = orderFor(state); order.trait = 'fickle'; g.tickDay(state, order.maxPatience * .32, constant);
+  assert.deepEqual(kinds().map(note => [note.kind, note.orderId]), [['fickle', order.id]]);
+  state.staff.buyer = true; state.inventory.sausage = 1; state.batches.sausage = [{ qty: 1, expiresDay: 10, cost: 3000 }]; state.activeDay.orders = []; state.activeDay.selectedOrderId = null;
+  g.takeBowl(state); g.addBroth(state, 'kimchi'); g.addTopping(state, 'sausage');
+  assert.deepEqual(kinds().map(note => [note.kind, note.item]), [['buyerOut', 'sausage']]);
+  g.tickDay(state, 12.1, constant); assert.deepEqual(kinds().map(note => [note.kind, note.item, note.ok]), [['buyerBack', 'sausage', true]]);
+  const students = opened(); students.activeDay.event = { ...g.DAILY_EVENTS.find(event => event.id === 'students') }; students.activeDay.nextArrival = 1000; g.takeNotices();
+  g.tickDay(students, 95, constant); assert.ok(kinds().some(note => note.kind === 'students' && note.cue === 'customerArrive'));
+  const level = opened(); level.xp = 145; level.goals[0].target = 1; g.takeNotices(); const guest = orderFor(level); prepare(level, guest); g.serveBowl(level, constant);
+  const notes = kinds(); assert.ok(notes.some(note => note.kind === 'goal' && note.goalId === level.goals[0].id)); assert.ok(notes.some(note => note.kind === 'levelUp' && note.level === 2));
+  const cashier = incidentDay(); cashier.staff.cashier = true; g.takeNotices(); g.serveBowl(cashier, sequence([.5, .01]));
+  assert.deepEqual(kinds().map(note => [note.kind, note.name, note.tone]), [['cashierCatch', cashier.reviews.at(-1).name, 'good']]);
+  assert.ok(!JSON.stringify(state).includes('potBurn'), 'notices are not part of the save');
+});
+
+test('a shop with the spaceport but no delivery app still saves while an interplanetary order waits', () => {
+  const state = g.createGame('Tiệm phi thuyền'); state.day = 12; state.xp = 30000; state.money = 9000000;
+  assert.equal(g.buyUpgrade(state, 'spaceport').ok, true); assert.equal(state.upgrades.delivery, false, 'the spaceport does not need the app');
+  assert.equal(g.buyCart(state, { bowls: 20, noodles: 20, kimchi: 20, beef: 20, sausage: 20 }).ok, true);
+  assert.equal(g.beginDay(state, () => .99).ok, true); state.activeDay.nextArrival = 999; state.activeDay.planetAt = 30;
+  g.tickDay(state, 31, constant);
+  assert.ok(state.activeDay.orders.some(order => order.planet && order.delivery), 'the interplanetary order is waiting');
+  assert.deepEqual(restore(state), state, 'the save loads');
+  const app = JSON.parse(JSON.stringify(state)); app.activeDay.orders.find(order => order.planet).planet = null;
+  assert.equal(restore(app), null, 'an app order still needs the delivery app');
+});

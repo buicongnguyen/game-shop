@@ -1,3 +1,5 @@
+import { STAFF } from './catalog.js';
+
 // Street situations: original text, mechanics measured from the reference game's rules.
 // Each choice returns declarative effects that game.js applies; rolls are drawn when the
 // situation opens so a reload cannot change the outcome.
@@ -15,6 +17,34 @@
 //   text: the outcome message;  tone: 'good' | 'bad' | 'neutral'
 
 const pick = (roll, values) => values[Math.min(values.length - 1, Math.floor(roll * values.length))];
+
+// ---- The kitchen romance: the noodle cook and the broth cook fall in love over three stages, each asking for days
+// off. Its outcomes (leave, a walkout, a pay cut, a wedding gift) are applied by game.js, not by the effect vocabulary.
+const COOK = STAFF.find(member => member.id === 'chef').name, BROTH_COOK = STAFF.find(member => member.id === 'broth').name;
+const grantHint = days => `${days === 1 ? 'Ngày mai' : `${days} ngày tới`} bạn tự luộc mì và múc nước dùng; hai bạn nghỉ không lương ${days === 1 ? 'ngày đó' : 'những ngày đó'}.`;
+const REFUSE = Object.freeze({ id: 'refuse', label: 'Không cho nghỉ, ai nghỉ trừ lương', hint: 'Hên xui: hai bạn giận dỗi bỏ về 2–3 ngày, hoặc ấm ức ở lại làm và chỉ nhận nửa lương hôm nay với ngày mai.' });
+export const ROMANCE_GIFT = 200000;
+export const ROMANCE = Object.freeze([
+  {
+    days: 1, icon: 'heart', title: 'Tình trong gian bếp',
+    text: `Dạo này ${COOK} vớt mì cứ liếc sang nồi nước dùng, còn ${BROTH_COOK} nêm nếm gì cũng cười tủm tỉm. Hai bạn đỏ mặt thú nhận đã thành một đôi, rồi lí nhí xin mai nghỉ một ngày để chở nhau xuống Cần Giờ ngắm rừng đước.`,
+    choices: [{ id: 'grant', label: 'Cho nghỉ 1 ngày', hint: grantHint(1) }, REFUSE],
+  },
+  {
+    days: 2, icon: 'tray', title: 'Nhà trai sắp sang dạm ngõ',
+    text: `Mẹ của ${BROTH_COOK} vừa gọi điện: nhà trai đã chọn ngày lành, sắp mang trầu cau sang nhà ${COOK} dạm ngõ. Hai bạn xin nghỉ hai ngày từ mai để sửa soạn; ${BROTH_COOK} còn đang tập đi tập lại lời thưa chuyện với hai bác.`,
+    choices: [{ id: 'grant', label: 'Cho nghỉ 2 ngày', hint: grantHint(2) }, REFUSE],
+  },
+  {
+    days: 3, icon: 'rings', title: 'Tấm thiệp hồng',
+    text: `${COOK} và ${BROTH_COOK} rụt rè đặt lên quầy một tấm thiệp hồng in hình hai tô mì chụm vào nhau: hai bạn sắp cưới! Hai bạn xin nghỉ ba ngày từ mai để lo đám cưới và về quê lại mặt, còn mời cả bạn tới chung vui.`,
+    choices: [
+      { id: 'gift', label: 'Cho nghỉ 3 ngày · mừng cưới 200.000đ', hint: 'Ba ngày tự xoay xở một mình, đổi lại hai bạn sẽ mang kẹo cưới về mời khách của quán.' },
+      { id: 'grant', label: 'Cho nghỉ 3 ngày', hint: grantHint(3) },
+      REFUSE,
+    ],
+  },
+].map(stage => Object.freeze({ ...stage, choices: Object.freeze(stage.choices.map(choice => Object.freeze({ ...choice }))) })));
 
 export const STORIES = Object.freeze({
   influencer: {
@@ -182,6 +212,12 @@ export const STORIES = Object.freeze({
       { id: 'pay', label: 'Nộp phạt · 80.000đ', effect: () => ({ dirty: false, money: -80000, text: 'Quán nộp phạt và lau sàn ngay.', tone: 'bad' }) },
     ],
   },
+  // The kitchen romance: title, text and choices come from ROMANCE by stage (see storyTitle/storyText in game.js).
+  romance: {
+    art: '💞', title: 'Chuyện tình trong bếp', romance: true,
+    text: ({ stage = 0 } = {}) => ROMANCE[stage]?.text ?? '',
+    choices: [],
+  },
 });
 
 export const STORY_IDS = Object.freeze(Object.keys(STORIES));
@@ -190,10 +226,13 @@ export const DAY_STORIES = Object.freeze(STORY_IDS.filter(id => id !== 'inspecti
 
 // Own keys only: a saved id such as "constructor" must never resolve to an inherited property.
 const storyById = id => typeof id === 'string' && Object.hasOwn(STORIES, id) ? STORIES[id] : null;
-export function storyChoices(storyId, { staff = false } = {}) {
+// Romance choices carry a hint; other stories' choices have none. `stage` is the romance stage index (0–2).
+export function storyChoices(storyId, { staff = false, stage = 0 } = {}) {
+  if (storyId === 'romance') return Number.isInteger(stage) && ROMANCE[stage] ? ROMANCE[stage].choices.map(({ id, label, hint }) => ({ id, label, hint })) : [];
   const story = storyById(storyId);
   return story ? story.choices.filter(choice => !choice.needsStaff || staff).map(({ id, label }) => ({ id, label })) : [];
 }
+// The romance has no declarative outcome: game.js applies leave, walkouts, pay cuts and the gift itself.
 export function storyOutcome(storyId, choiceId, context) {
   const choice = storyById(storyId)?.choices.find(row => row.id === choiceId);
   return choice ? choice.effect(context) : null;

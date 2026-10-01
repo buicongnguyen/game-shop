@@ -19,6 +19,7 @@ try {
     await scenario(`service-fits-${viewport.width}x${viewport.height}`, viewport, fixture(true,true), async page => {
       await page.locator('[data-action="continue"]').tap();
       await page.evaluate(() => document.fonts.ready);
+      await withEffects(page);
       await noOverflow(page);
       assert.ok(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1), 'The service screen needs no page scrolling');
       for (const selector of [...cookingControls, '[data-action="pot"]']) {
@@ -64,6 +65,7 @@ try {
       await page.locator('[data-action="continue"]').tap();
       for (const action of ['rush','help','goals','stockout','finish','settings','menu']) {
         await page.locator(`[data-action="${action}"]`).last().tap();
+        await settled(page);
         const box = await page.locator('dialog').boundingBox();
         assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= viewport.width + .5 && box.y + box.height <= viewport.height + .5, `${action} dialog fits the screen`);
         for (const report of await reachable(page, '#dialog .modal-actions button')) assert.ok(report.ok, `${action} dialog action stays on screen: ${JSON.stringify(report)}`);
@@ -100,9 +102,46 @@ try {
     });
   }
 
+  // Short wide windows (a 1366×768 laptop under its browser bars, small tablets): the shop picture and the sign's pills
+  // stay clear of the day card, whose event and update pill sit right below them; the left column scrolls instead.
+  for (const viewport of [{width:1024,height:600},{width:1366,height:657},{width:900,height:560}]) {
+    await scenario(`prep-hero-clear-of-the-day-card-${viewport.width}x${viewport.height}`, viewport, prepFixture(), async page => {
+      await page.locator('[data-action="continue"]').click();
+      await noOverflow(page);
+      const box = await page.evaluate(() => { const bottom = selector => document.querySelector(selector).getBoundingClientRect().bottom; return { picture: bottom('.prep-illustration'), pills: bottom('.sign-row'), card: document.querySelector('.daily-card').getBoundingClientRect().top }; });
+      assert.ok(box.picture <= box.card + .5 && box.pills <= box.card + .5, `The hero ends above the day card: ${JSON.stringify(box)}`);
+      for (const report of await reachable(page, '#open-day')) assert.ok(report.ok, `The open-shop button stays on screen: ${JSON.stringify(report)}`);
+    }, false);
+  }
+
+  // Barks run up to 32 characters, far wider than a seat on a small phone: no bubble is cut by the street's edge, and
+  // a bubble lying over the next seats never takes the tap meant for their faces.
+  await scenario('speech-bubbles-stay-in-the-street-and-let-taps-through-320x568', touchSizes[0], fixture(true,true), async page => {
+    await page.locator('[data-action="continue"]').tap();
+    await page.evaluate(() => { for (const card of document.querySelectorAll('#customers .customer')) { const speech = card.querySelector('.speech'); speech.textContent = 'Tay nghề này đáng huy chương!'; speech.hidden = false; } });
+    await page.waitForTimeout(400);
+    const seats = await page.evaluate(() => {
+      const street = document.querySelector('.street').getBoundingClientRect(), cards = [...document.querySelectorAll('#customers .customer')];
+      return cards.map((card, index) => { const bubble = card.querySelector('.speech').getBoundingClientRect(), ring = card.querySelector('.patience-ring').getBoundingClientRect(), hit = document.elementFromPoint(ring.x + ring.width / 2, Math.max(ring.top + 2, bubble.top + bubble.height / 2))?.closest('.customer'); return { index, inside: bubble.left >= street.left - .5 && bubble.right <= street.right + .5, hit: cards.indexOf(hit) }; });
+    });
+    assert.equal(seats.length, 4, 'Four guests are seated');
+    for (const seat of seats) { assert.ok(seat.inside, `Seat ${seat.index + 1}'s bubble stays inside the street`); assert.equal(seat.hit, seat.index, `A tap on seat ${seat.index + 1}'s face selects that guest, whatever bubble lies over it`); }
+  });
+
+  // The love story's last stage has three choices with hint lines: on a landscape phone they sit side by side, so the
+  // story's own text still shows above them (three full-width hint buttons had squeezed it out of sight).
+  await scenario('love-story-text-shows-above-its-choices-844x390', touchSizes[3], romanceFixture(), async page => {
+    await page.locator('[data-action="continue"]').tap();
+    await page.waitForTimeout(1400); await settled(page);
+    for (const report of await reachable(page, '#dialog .modal-actions button')) assert.ok(report.ok, `Every choice stays on screen: ${JSON.stringify(report)}`);
+    const shown = await page.evaluate(() => { const body = document.querySelector('#dialog .modal-content').getBoundingClientRect(), text = document.querySelector('#dialog .modal-content p').getBoundingClientRect(); return Math.min(body.bottom, text.bottom) - Math.max(body.top, text.top); });
+    assert.ok(shown >= 40, `At least two lines of the story show without scrolling (${Math.round(shown)} px)`);
+  });
+
   for (const viewport of desktopSizes) {
     await scenario(`desktop-service-${viewport.width}x${viewport.height}`, viewport, fixture(true,true), async page => {
       await page.locator('[data-action="continue"]').click();
+      await withEffects(page);
       await noOverflow(page);
       assert.ok(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1), 'The service screen needs no page scrolling');
       for (const selector of [...cookingControls, '[data-action="pot"]']) {
@@ -112,6 +151,16 @@ try {
       await page.screenshot({path:`${output}/${viewport.width}x${viewport.height}-service.png`});
     }, false);
   }
+
+  await scenario('effects-pause-behind-dialogs-and-stop-with-motion-off', touchSizes[2], fixture(true,true), async page => {
+    await page.locator('[data-action="continue"]').tap();
+    await withEffects(page);
+    assert.ok(await layerAnimations(page) > 0, 'The demo starts effects and street life');
+    await page.locator('[data-action="settings"]').tap(); await page.waitForTimeout(150);
+    assert.equal(await layerAnimations(page, 'running'), 0, 'Nothing in the layers keeps running behind an open dialog');
+    await page.locator('#dialog [data-setting="motion"]').uncheck(); await page.locator('.modal-close').tap(); await page.waitForTimeout(150);
+    assert.equal(await layerAnimations(page), 0, 'Motion off clears every effect and actor');
+  });
 
   await scenario('phone-inputs-and-modal-targets', touchSizes[0], G.createGame('Tiệm nhập hàng'), async page => {
     await page.locator('[data-action="continue"]').tap();
@@ -139,7 +188,7 @@ async function scenario(name, viewport, state, run, touch = true) {
   page.setDefaultTimeout(7000);
   page.on('pageerror',error => errors.push(`${name}: ${error.message}`));
   try {
-    await page.addInitScript(({state,key}) => { localStorage.setItem(key, JSON.stringify(state)); Math.random=()=>.5; }, {state,key:G.SAVE_KEY});
+    await page.addInitScript(({state,key}) => { localStorage.setItem(key, JSON.stringify(state)); localStorage.setItem('tiem-mi-cay-terms-v1', JSON.stringify({version:99,at:0})); Math.random=()=>.5; }, {state,key:G.SAVE_KEY});
     await page.goto(url);
     const client = touch ? await context.newCDPSession(page) : null;
     await run(page,client);
@@ -178,6 +227,18 @@ async function settle(scroller) {
   }
 }
 
+// Dialogs pop in for 0.2 s; sizes are measured once the opening animation has finished (a loaded machine stretches it).
+async function settled(page) { await page.waitForFunction(() => !document.getAnimations().some(animation => animation.effect?.target?.closest?.('#dialog')), null, { timeout: 2000 }).catch(() => {}); }
+// Effects and street actors on screen (through the app's test hook); their layers must never take a tap.
+async function withEffects(page) {
+  await page.evaluate(() => window.__tiemFx?.demo()); await page.waitForTimeout(160);
+  const events = await page.evaluate(() => ['#fx-layer', '.street-life'].map(selector => { const node = document.querySelector(selector); return node ? getComputedStyle(node).pointerEvents : 'missing'; }));
+  assert.deepEqual(events, ['none', 'none'], 'Both effect layers exist and let taps through');
+}
+async function layerAnimations(page, state) {
+  return page.evaluate(state => document.getAnimations().filter(animation => animation.effect?.target?.closest?.('#fx-layer, .street-life') && (!state || animation.playState === state)).length, state);
+}
+
 async function noOverflow(page) {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal page overflow');
 }
@@ -190,6 +251,16 @@ async function swipe(client, from, to, pauseBeforeLift=0) {
   }
   if(pauseBeforeLift)await new Promise(resolve=>setTimeout(resolve,pauseBeforeLift));
   await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+}
+
+function romanceFixture() {
+  const state=G.createGame('Tiệm chuyện tình');
+  state.day=20;state.xp=6200;state.money=5000000;state.settings.sound=false;state.unlocked=G.INGREDIENTS.map(item=>item.id);
+  assert.ok(G.buyCart(state,Object.fromEntries(state.unlocked.map(id=>[id,15]))).ok);
+  for(const id of ['chef','broth'])assert.ok(G.hireStaff(state,id).ok);
+  state.romance={stage:2,lastDay:10,backDay:12,gift:0};
+  assert.ok(G.beginDay(state,()=>.99).ok);assert.ok(G.forceStory(state,'romance',()=>.3).incident,'The love story opens at its last stage');
+  return state;
 }
 
 function prepFixture() {

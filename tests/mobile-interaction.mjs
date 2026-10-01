@@ -188,6 +188,20 @@ try {
     assert.equal((await saved(page)).sidequests.market.round, 2, 'Space remains usable for the next moving needle');
   }, 'keyboard');
 
+  // The sign's pills repeat actions found elsewhere (Thành tích is also in the accounts tab): Escape, like ×, gives the
+  // focus back to the button that opened the dialog, not to the first one with the same action.
+  await scenario('keyboard-escape-returns-focus-to-the-opener', prepFixture(), async page => {
+    await page.locator('[data-action="tab"][data-id="accounts"]').click();
+    const records=page.locator('.account-actions [data-action="records"]');
+    await records.focus();await page.keyboard.press('Enter');assert.equal(await page.locator('#dialog').evaluate(node=>node.open),true);
+    await page.keyboard.press('Escape');assert.equal(await page.locator('#dialog').evaluate(node=>node.open),false,'Escape closes the dialog');
+    assert.equal(await records.evaluate(node=>node===document.activeElement),true,'Focus is back on the accounts tab button');
+    await page.keyboard.press('Enter');await page.locator('#dialog .modal-close').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('#dialog').evaluate(node=>node.open),false,'× closes the dialog');
+    assert.equal(await records.evaluate(node=>node===document.activeElement),true,'and focus is back on the accounts tab button, not the sign pill');
+    const pill=page.locator('.sign-pill[data-action="neighbours"]');await pill.focus();await page.keyboard.press('Enter');await page.keyboard.press('Escape');
+    assert.equal(await pill.evaluate(node=>node===document.activeElement),true,'Focus is back on the Hàng xóm pill');
+  }, 'keyboard');
+
   assert.deepEqual(errors, [], 'No browser runtime errors');
 } finally {
   await browser.close();
@@ -205,7 +219,7 @@ async function scenario(name, fixture, run, input) {
   try {
     await page.clock.install({time:new Date('2026-09-30T00:00:00Z')});
     await page.clock.pauseAt(new Date('2026-09-30T00:00:01Z'));
-    await page.addInitScript(({fixture,key})=>{Math.random=()=>.5;localStorage.setItem(key,JSON.stringify(fixture));localStorage.setItem('tiem-mi-cay-preferences-v1',JSON.stringify({sound:false,motion:false,theme:'light'}));}, {fixture,key:G.SAVE_KEY});
+    await page.addInitScript(({fixture,key})=>{Math.random=()=>.5;localStorage.setItem(key,JSON.stringify(fixture));localStorage.setItem('tiem-mi-cay-preferences-v1',JSON.stringify({sound:false,motion:false,theme:'light'}));localStorage.setItem('tiem-mi-cay-terms-v1',JSON.stringify({version:99,at:0}));}, {fixture,key:G.SAVE_KEY});
     await page.goto(url);await page.evaluate(()=>document.fonts.ready);
     await page.locator('[data-action="continue"]').click();
     await run(page);

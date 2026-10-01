@@ -1,0 +1,19 @@
+{
+  "name": "Tiệm Mì Cay",
+  "short_name": "Mì Cay",
+  "description": "Mở tiệm mì cay nhỏ của bạn. Nhập hàng, nấu mì, phục vụ khách và phát triển quán — chơi và lưu hoàn toàn trên máy.",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#5a2334",
+  "theme_color": "#5a2334",
+  "categories": ["games", "food"],
+  "icons": [
+    { "src": "./assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

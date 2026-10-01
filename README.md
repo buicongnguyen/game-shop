@@ -31,7 +31,7 @@ Use the HTTP server, rather than opening `index.html` as a file. `npm run build`
 - From day 2, street stories interrupt service (a gas cylinder runs out, a spill, a tour bus, an inspection…). Payment incidents also interrupt it: a dine-and-dash, wrong change, a request for credit, a complaint. Service pauses and every choice has its own cost.
 - Some guests are in a hurry, change their mind about spice, or haggle after eating.
 - When a dish is sold out, the ticket shows a Handle button: rush-buy, offer a swap, drop the topping, wait for the buyer, or apologise. Tapping an empty ingredient rush-buys it.
-- Debts, windfalls and level-ups arrive as cards the next morning. If the till can't cover the minimum restock, the shop can't open until you take a loan or start a fresh shop.
+- Debts, windfalls, level-ups, what's new, the neighbours' surprises and the cooks' leave arrive as cards the next morning, in that order. If the till can't cover the minimum restock, the shop can't open until you take a loan or start a fresh shop.
 - Reviews state their cause. You can reply to a review within two days: a polite reply can win a star back, and a rude one costs one.
 - Equipment, staff, decorations and the review histogram are in the management tabs. Sound effects and music are synthesised in the browser, with their own toggles.
 - Every object has its own original illustration:
@@ -44,6 +44,19 @@ Use the HTTP server, rather than opening `index.html` as a file. `npm run build`
 - Once the shop is on the delivery app, a few orders a day are too far for the app's riders. After cooking you ride the scooter yourself, dodging potholes, puddles and cones, or hire a courier. A clean ride earns a bonus and a star.
 - From level 9 a spaceport brings interplanetary orders. Choose how much fuel to load, collect fuel cells on the way, dodge asteroids, debris and comets, and dock at one of five planets.
 - Optional market bargaining, secret-broth memory play and bowl washing add daily activities. A seeded daily challenge runs separately and keeps the main shop intact. Its records are local to this browser.
+- Small motions follow the reference's timings:
+  - guests walk in and bob while they wait, sweat as patience runs low, and leave as a happy or angry ghost (hearts for a perfect bowl);
+  - noodles are scooped with a splash in the broth colour, broth falls as droplets, toppings drop in;
+  - the chili bottle squeezes, with flames from level 5;
+  - the bowl flies to the guest, and the wallet counts up;
+  - situation choices lock for 1.2 s with a progress bar.
+
+  Everything runs on transform and opacity, pauses behind dialogs and switches off with **Chuyển động** (motion).
+- The street behind the guests is alive. Sparrows sit on the wires, people walk past (with umbrellas in the rain), scooters and a bus drive by on wide screens. A flock flies home at sunset, the lamp flickers on with moths, a cat walks the rooftops, a kite flies at weekends and your pet keeps you company. Street stories get their own short scenes.
+- **Kitchen love story:** from level 7, the noodle cook Bé Ngò and the broth cook Anh Sả fall in love over three stages and ask for days off. Granting means cooking alone. Refusing risks a walkout or half pay. A wedding gift brings wedding candy and a busier day.
+- **Neighbours:** six fictional shops on the street. Send up to three surprises a day: a rat, a tipsy guest, the ward patrol, a haggling guest, a tour group or a celebrity. They send some back during your next day, and a street board compares lifetime profits. The neighbours are game characters, not real players.
+- The mascot Ớt Hiểm sits on the shop sign and gives tips, contextual when reviews are waiting or a loan is owed. The pet in the shop picture can be petted.
+- A short terms-of-play gate comes first. A what's-new card shows once per version. **Cài đặt** (Settings) offers install help and the terms. The game can be added to the home screen and plays offline after the first visit; updates are offered on the prep screen, never mid-service.
 
 The game pauses while dialogs are open and when the tab is hidden. Returning to a hidden active game shows an explicit resume dialog. Stock, the bowl, noodle pots, customers and progression persist together. Old version-1 saves are migrated and their original JSON retained as a backup; the version-1 engine never saved unfinished bowls, so that missing old state cannot be recovered.
 
@@ -61,11 +74,11 @@ npm run test:pages
 npm run test:simulation
 ```
 
-The browser runner starts and closes its own local test server. Tests cover engine invariants, reference-based mechanics, side games, actual cooking controls, save/import/export, pauses, keyboard focus, local competition, art loading and responsive layouts. A seeded 100-day simulation checks cash flow, inventory batches and live-save round trips. Screenshots and machine-readable reports are written to `test-results/`. Historical version-1 tests are retained in `tests/archive-v1/` and are excluded from the current commands.
+The browser runner starts and closes its own local test server. It runs the parity, interaction, layout, install/offline (`pwa-browser.mjs`), effects (`fx-browser.mjs`) and living-street (`life-browser.mjs`) suites. `SUITES=a.mjs,b.mjs` picks suites, and `ONLY=<name part>` runs a subset of the parity scenarios. CI (`test:pages`) runs all of them except the living-street suite, which takes several minutes; its rules are covered by `tests/life.test.js` and the layout suite. Tests cover engine invariants, reference-based mechanics, side games, actual cooking controls, save/import/export, pauses, keyboard focus, local competition, art loading and responsive layouts. A seeded 100-day simulation checks cash flow, inventory batches and live-save round trips. Screenshots and machine-readable reports are written to `test-results/`. Historical version-1 tests are retained in `tests/archive-v1/` and are excluded from the current commands.
 
 `npm run test:pages` serves only the compiled `dist/` directory beneath `/game-shop/` and runs the full browser suite there. Requests that accidentally target the host root fail this check.
 
-Both browser commands include held mouse/touch/keyboard presses while timers advance, canceled gestures, pot expiry and chef transitions. Layout checks cover phones (320×568 to 390×844), a phone on its side (844×390), tablets (768×1024, 1024×768) and PCs (1280×720 to 1920×1080): every cooking control must be visible and touchable without scrolling, touch targets stay at least 44px, real finger swipes scroll the pantry without adding ingredients, and every dialog keeps its close and action buttons on screen. The tests use browser device emulation; physical iOS/Android hardware was not tested.
+Both browser commands include held mouse/touch/keyboard presses while timers advance, canceled gestures, pot expiry and chef transitions. Layout checks cover phones (320×568 to 390×844), a phone on its side (844×390), tablets (768×1024, 1024×768) and PCs (1280×720 to 1920×1080), with effects and street actors on screen: every cooking control must be visible and touchable without scrolling, touch targets stay at least 44px, real finger swipes scroll the pantry without adding ingredients, and every dialog keeps its close and action buttons on screen. The tests use browser device emulation; physical iOS/Android hardware was not tested.
 
 ## GitHub Pages deployment
 
@@ -75,7 +88,7 @@ GitHub Pages and localhost have separate browser storage. Export a save from the
 
 ## Scope and files
 
-This project has its own code and artwork. It does not use the reference game's source, assets, account system or backend at runtime. It runs locally with no external requests. Online leaderboards, cloud accounts and real-player competition are not connected; remaining offline approximations are listed in [docs/PARITY.md](docs/PARITY.md). Blender and Unity are unnecessary for this 2D browser interface: editable SVGs stay sharp on every screen, weigh about 1 KB per ingredient and take the chosen awning colour. The bowl and cooking pots are drawn from game state, so the bowl shows its real broth, noodles, toppings and chili.
+This project has its own code and artwork. It does not use the reference game's source, assets, account system or backend at runtime. It runs locally with no external requests. A service worker caches the built site for offline play (only on HTTPS or with `?sw` locally). Online leaderboards, cloud accounts and real-player competition are not connected; remaining offline approximations are listed in [docs/PARITY.md](docs/PARITY.md). Blender and Unity are unnecessary for this 2D browser interface: editable SVGs stay sharp on every screen, weigh about 1 KB per ingredient and take the chosen awning colour. The bowl and cooking pots are drawn from game state, so the bowl shows its real broth, noodles, toppings and chili.
 
 - `src/game.js`: state, cooking, customers, situations, economy, persistence and validation.
 - `src/situations.js`: the street stories and the effects of each choice.
@@ -85,8 +98,13 @@ This project has its own code and artwork. It does not use the reference game's 
 - `src/sidequests.js`: optional daily mini-game state and rules.
 - `src/art/people.js`, `src/art/bowl.js`, `src/art/scene.js`: original art generators for the characters, the kitchen and the shop scene and street (see [docs/ART-STYLE.md](docs/ART-STYLE.md)).
 - `src/ride.js`, `src/planets.js`: the scooter and starship mini-games (canvas), and the planets, fuel and flight rules.
+- `src/neighbours.js`: the fictional neighbours, surprises and the street board.
+- `src/fx.js`, `src/fx.css`: the kitchen and customer effects layer (pooled, transform and opacity only).
+- `src/life.js`, `src/life.css`, `src/art/life.js`: the living street and its sprites, the love-story medallion and the surprise icons.
+- `src/meta-ui.js`: terms of play, what's new, install help and the mascot's tips.
+- `src/pwa.js`, `sw.js`, `manifest.webmanifest`, `src/art/app-icon.js`, `tools/icons.mjs`: home-screen install, the offline worker and the app icons.
 - `src/app.js`, `src/minigames-ui.js`, `src/ui.js`: interface and controls.
-- `src/style.css`: layout, appearance and responsive behavior for phones, tablets and PCs in one stylesheet.
+- `src/style.css`: layout, appearance and responsive behavior for phones, tablets and PCs.
 - `public/assets/`: original illustrations, local fonts and font licenses.
 - `server.mjs`, `tools/`: local server, build and verification runner.
 - `reference-values.md`: observed rules used for the independent implementation.

@@ -76,12 +76,12 @@ export const UPGRADES = freezeRows([
 ]);
 
 export const STAFF = freezeRows([
-  { id: 'cashier', name: 'Chị Mận', role: 'Thu ngân', description: 'Ngăn khách ăn quỵt và phát hiện thanh toán nhầm.', price: 0, wage: 50000, unlockLevel: 3, icon: '🧾' },
-  { id: 'chef', name: 'Bé Na', role: 'Phụ bếp luộc mì', description: 'Tự luộc mì, vớt đúng lúc và để vào rổ mì chín.', price: 0, wage: 60000, unlockLevel: 4, icon: '👩‍🍳' },
-  { id: 'waiter', name: 'Bé Mít', role: 'Chạy bàn', description: 'Khách mất kiên nhẫn chậm hơn 15%; giúp dọn mì bị đổ.', price: 0, wage: 60000, unlockLevel: 5, icon: '🙋' },
-  { id: 'buyer', name: 'Cô Chôm', role: 'Đi chợ', description: 'Mua thêm 5 phần khi hết món, tối đa 4 chuyến mỗi ngày.', price: 0, wage: 70000, unlockLevel: 6, icon: '🧺' },
-  { id: 'broth', name: 'Anh Hấu', role: 'Phụ bếp nước dùng', description: 'Lấy tô là tự múc nước dùng đúng đơn đang chọn.', price: 0, wage: 80000, unlockLevel: 7, icon: '🥘' },
-  { id: 'topping', name: 'Bé Ổi', role: 'Phụ bếp topping', description: 'Tự thêm topping khi tô có đúng nước dùng của đơn đang chọn.', price: 0, wage: 90000, unlockLevel: 8, icon: '🥢' },
+  { id: 'cashier', name: 'Chị Quế', role: 'Thu ngân', description: 'Ngăn khách ăn quỵt và phát hiện thanh toán nhầm.', price: 0, wage: 50000, unlockLevel: 3, icon: '🧾' },
+  { id: 'chef', name: 'Bé Ngò', role: 'Phụ bếp luộc mì', description: 'Tự luộc mì, vớt đúng lúc và để vào rổ mì chín.', price: 0, wage: 60000, unlockLevel: 4, icon: '👩‍🍳' },
+  { id: 'waiter', name: 'Bé Nghệ', role: 'Chạy bàn', description: 'Khách mất kiên nhẫn chậm hơn 15%; giúp dọn mì bị đổ.', price: 0, wage: 60000, unlockLevel: 5, icon: '🙋' },
+  { id: 'buyer', name: 'Cô Hồi', role: 'Đi chợ', description: 'Mua thêm 5 phần khi hết món, tối đa 4 chuyến mỗi ngày.', price: 0, wage: 70000, unlockLevel: 6, icon: '🧺' },
+  { id: 'broth', name: 'Anh Sả', role: 'Phụ bếp nước dùng', description: 'Lấy tô là tự múc nước dùng đúng đơn đang chọn.', price: 0, wage: 80000, unlockLevel: 7, icon: '🥘' },
+  { id: 'topping', name: 'Bé Tía Tô', role: 'Phụ bếp topping', description: 'Tự thêm topping khi tô có đúng nước dùng của đơn đang chọn.', price: 0, wage: 90000, unlockLevel: 8, icon: '🥢' },
 ]);
 
 const decoration = (id, name, type, price, unlockLevel, value, icon, extra = {}) =>

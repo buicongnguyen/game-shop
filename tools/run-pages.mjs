@@ -6,6 +6,11 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// SUITES=a.mjs,b.mjs runs only those files from tests/ (default: every browser suite).
+const allSuites = ['parity-browser.mjs', 'mobile-interaction.mjs', 'mobile-layout.mjs', 'pwa-browser.mjs', 'fx-browser.mjs'];
+const suites = process.env.SUITES ? process.env.SUITES.split(',').map(name => name.trim()).filter(Boolean) : allSuites;
+for (const name of suites) if (!/^[\w.-]+\.mjs$/.test(name)) throw new Error(`SUITES lists an invalid file name: ${name}`);
+
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
 const root = path.join(projectRoot, 'dist');
 const prefix = '/' + (process.env.PAGES_BASE_PATH || 'game-shop').replace(/^\/+|\/+$/g, '') + '/';
@@ -40,7 +45,7 @@ try {
   }
   assert.equal((await fetch(url + 'assets/favicon.svg')).status, 200);
   console.log(`Testing the built GitHub Pages artifact at ${url}`);
-  for (const file of ['parity-browser.mjs', 'mobile-interaction.mjs', 'mobile-layout.mjs']) {
+  for (const file of suites) {
   const tests = spawn(process.execPath, [`tests/${file}`], {
     cwd: projectRoot,
     stdio: 'inherit',

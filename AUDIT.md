@@ -211,6 +211,78 @@ What fixed it:
   - interaction 26/26;
   - layout 19/19.
 
+## Living details and the missing reference features — 2026-10-01 (sixth pass)
+
+**Evaluation of the request.**
+- **Small living details:** the reference feels alive through many small motions, timed precisely. Examples:
+  - guests walk in (30 px, 0.45 s) and bob (3 px, 2.4 s);
+  - hearts on a perfect bowl;
+  - a strainer scoop with a splash in the broth colour;
+  - the bowl flying to the guest;
+  - the wallet counting up;
+  - a 1.2 s choice lock.
+
+  These were copied by their numbers into a pooled effects layer. The reference's street is a flat panel; the living street is our addition.
+- **Missing features:** each was built from the reference's rules:
+  - the staff love story, with absences and pay cuts;
+  - neighbour pranks;
+  - the what's-new card;
+  - the terms gate;
+  - home-screen install.
+
+  The pranks use six fictional neighbours, because the reference's real players need its server.
+- **Originality:** the staff carried the reference's names, so they were renamed (Chị Quế, Bé Ngò, Bé Nghệ, Cô Hồi, Anh Sả, Bé Tía Tô). The mascot got its own name, Ớt Hiểm.
+
+**Work.** Six parallel builders had strict file ownership; the interface was integrated in `src/app.js`.
+- **`src/fx.js` and `src/fx.css`:**
+  - arcs, scoops, pours, drops, bursts, departure ghosts, counters and captions;
+  - every animation is transform and opacity on one fixed layer, and pauses behind dialogs and hidden tabs.
+- **`src/audio.js`:** 23 new synthesised cues.
+- **`src/life.js` and `src/art/life.js`:**
+  - 33 sprite kinds, 16 street scenes, and seeded ambient plans;
+  - at most 3 actors on phones and 6 on wide screens.
+- **Engine:** `src/neighbours.js` is new, and `game.js`, `situations.js`, `voice.js` and `catalog.js` gained:
+  - the love story and absence-aware wages and automation;
+  - the prank queue;
+  - validated save fields;
+  - structured notices and barks.
+- **`src/meta-ui.js`:** terms, what's new, install help and tips.
+- **`src/pwa.js`, `sw.js`, `manifest.webmanifest`:** install and offline play, with updates applied on the prep screen.
+
+**Bugs found while integrating.**
+- **`replaceContents` never matched:** it compared `innerHTML` with the source string, which never match once SVG is serialised. The bowl was re-inserted on every paint, costing layout and paint and replaying its animation. It now remembers what it wrote.
+- **Patience bar width transition:** it restarted every 150 ms. It is now a compositor-only `scaleX`.
+- **Box-shadow pulses** on urgent guests, the tea button, danger pots and the closing clock repainted every frame. They are replaced by transform/opacity versions.
+- **Zero-size anchors:** hidden nodes report an all-zero rectangle, which counted as a valid anchor, so effects aimed at nothing on 320 px phones with three pots. A zero-size rectangle now counts as absent.
+- **Pet button:** with animations off, a `translate()` on the pet button let Chrome deliver real taps to the picture underneath, although `elementFromPoint` found the button. It is now placed without a transform.
+- **Dialog pop:** a scale pop made the dialog's close button 41 px tall for 0.2 s. It now slides instead of scaling.
+- **`:has()` pause rules:** `body:has(dialog[open])` rules restyled the whole page about nine times a second. The layers now pause from a class set by script.
+
+**Performance.** Service screen at 390×844, DPR 2, CPU slowed 4×, browser trace, milliseconds of work per second, median of 3 interleaved runs. Round 3 (76773c1) and this round were measured in one session, so they compare directly. Absolute numbers depend on machine load, so compare columns, not passes.
+
+| Work | Round 3 | Round 4, motion on (effects and street running) | Round 4, motion off |
+| --- | --- | --- | --- |
+| Paint | 72.8 | 20.1 | 9.6 |
+| Raster | 23.2 | 8.7 | 8.3 |
+| Style and layout | 83.9 | 42.3 | 21.2 |
+| Script | 51.5 | 59.0 | 45.9 |
+| Composite | 14.9 | 6.2 | 1.7 |
+
+**Evidence.**
+- `npm test`: **259/259**. New suites:
+  - `staff.test.js`, `neighbours.test.js`;
+  - `meta.test.js`, `pwa.test.js`;
+  - `art-life.test.js`, `fx.test.js`, `life.test.js`.
+- **100-day simulation:** 36,823 checks pass. It covered 3 love-story stages (walkout, grant, gift), 150 surprises sent and 169 received, 178 rides and 57 flights.
+- **Browser, development server:**
+  - parity 26/26, with 6 new scenarios: terms gate, what's new, the love story through leave and the staff card, sending a surprise, the morning gift card, and mascot tips with petting the cat;
+  - interaction 26/26;
+  - layout 20/20, with effects and street actors on screen at all nine sizes, plus pausing behind dialogs and stopping with motion off;
+  - effects 11/11;
+  - install and offline 8/8;
+  - living street 120/120.
+- **Browser, the compiled site under `/game-shop/`:** parity 26/26, interaction 26/26, layout 20/20, effects 11/11, install 7/7.
+
 ## Verification limits
 
 Automated local checks do not establish exact visual parity, original server behavior, balanced long-term economics under every player strategy, or exhaustive mobile/accessibility coverage. The remaining product differences are explicitly listed in [docs/PARITY.md](docs/PARITY.md). JSON saves remain player-controlled data; validation prevents malformed state from entering normal play, and does not function as an anti-cheat service.

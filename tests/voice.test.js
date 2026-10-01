@@ -216,3 +216,48 @@ test('customerAnswer is grateful after polite replies, cold after rude ones, neu
     assert.notEqual(rude, polite);
   }
 });
+
+test('barks: a short line for every moment, persona and seed, deterministic and never touching Math.random', () => {
+  assert.deepEqual([...V.BARK_KINDS], ['greet', 'hurry', 'thanks', 'thanksGreat', 'angry', 'wrong', 'tea', 'spicy']);
+  const personas = [...V.PERSONAS.map(row => row.id), 'tourist', 'astronaut', 'unknown'];
+  withoutMathRandom(() => {
+    for (const persona of personas) for (const kind of V.BARK_KINDS) {
+      const seen = new Set();
+      for (let seed = 0; seed < 40; seed++) {
+        const spice = seed % 2 ? 7 : undefined, line = V.bark(kind, { persona, spice, random: lcg(seed) });
+        assert.ok(line.length > 0 && line.length <= 32, `${persona}/${kind}: ${line}`);
+        assert.doesNotMatch(line, /[{}]|undefined|NaN|\s{2}/, line);
+        assert.equal(V.bark(kind, { persona, spice, random: lcg(seed) }), line, 'same seed, same bark');
+        if (spice === undefined) assert.doesNotMatch(line, /cấp\s*$|level\s*\?/i);
+        seen.add(line);
+      }
+      assert.ok(seen.size >= 2 || persona === 'pair' && ['wrong', 'tea'].includes(kind) || ['young-man', 'gentleman'].includes(persona) && kind === 'tea', `${persona}/${kind} should vary`);
+    }
+  });
+  assert.equal(V.bark('dance', { persona: 'student', random: lcg(1) }), '', 'unknown moments say nothing');
+});
+
+test('barks follow the persona: tourists in simple English, astronauts in space talk, the spice level and self word filled in', () => {
+  const english = /\b(hello|hi|please|thank|thanks|you|bowl|my|so|good|wow|best|amazing|perfect|sorry|bye|slow|oops|wrong|order|nice|tea|spicy|hot|love|very|yummy|still|level|go|noodles)\b/i;
+  for (const kind of V.BARK_KINDS) for (let seed = 0; seed < 30; seed++) {
+    const tourist = V.bark(kind, { persona: 'tourist', self: 'I', spice: 7, random: lcg(seed) });
+    assert.match(tourist, english, tourist);
+  }
+  const space = new Set(Array.from({ length: 40 }, (_, seed) => V.bark('greet', { persona: 'astronaut', random: lcg(seed) })));
+  assert.ok([...space].some(line => /tàu|hạ cánh/i.test(line)), [...space].join(' | '));
+  const spicy = new Set(Array.from({ length: 60 }, (_, seed) => V.bark('spicy', { persona: 'student', spice: 6, random: lcg(seed) })));
+  assert.ok([...spicy].some(line => line.includes('cấp 6')), [...spicy].join(' | '));
+  const pairs = new Set(Array.from({ length: 60 }, (_, seed) => V.bark('greet', { persona: 'regular', self: 'tụi mình', random: lcg(seed) })));
+  assert.ok([...pairs].some(line => line.includes('tụi mình')), 'the self word is used');
+  assert.ok(V.bark('angry', { persona: 'regular', self: 'một vị khách có cái tên rất là dài', random: () => .1 }).length <= 32, 'long self words still fit');
+  const auntie = new Set(Array.from({ length: 40 }, (_, seed) => V.bark('thanks', { persona: 'auntie', random: lcg(seed) })));
+  assert.ok([...auntie].every(line => /con|cô/i.test(line)), 'aunties call the cook “con”');
+});
+
+test('barks never throw for persona names that are also object properties, and fall back to the shared lines', () => {
+  for (const persona of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf', null, 42, {}]) for (const kind of V.BARK_KINDS) {
+    const line = V.bark(kind, { persona, spice: 7, random: lcg(3) });
+    assert.ok(line.length > 0 && line.length <= 32, `${String(persona)}/${kind}: ${line}`);
+    assert.doesNotMatch(line, /[{}]|function|undefined|NaN/, line);
+  }
+});

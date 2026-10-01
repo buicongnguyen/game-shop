@@ -200,7 +200,7 @@ try {
     await page.keyboard.press('Escape');assert.equal(await page.locator('dialog').evaluate(d=>d.open),true,'Escape cannot discard an unresolved incident');
     await page.clock.runFor(40000);assert.deepEqual(await save(page),before,'Incident pauses patience, cooking, and closing clocks');
     await page.reload();await click(page,'continue');assert.equal(await page.locator('dialog').getAttribute('data-incident'),pending.id);assert.deepEqual(await save(page),before,'Reload restores the exact unresolved incident');
-    assert.equal(await page.locator('[data-action="incident"][data-id="ignore"]').isDisabled(),true,'Choices lock briefly so a tap meant for the kitchen cannot answer');await page.clock.runFor(1100);
+    assert.equal(await page.locator('[data-action="incident"][data-id="ignore"]').isDisabled(),true,'Choices lock briefly so a tap meant for the kitchen cannot answer');await page.clock.runFor(1300);
     const button=await page.locator('[data-action="incident"][data-id="ignore"]').elementHandle();await button.evaluate(node=>{node.click();node.click();});
     const resolved=await save(page);assert.equal(resolved.activeDay.pendingIncident,null);assert.equal(resolved.money,before.money-pending.bill);assert.equal(resolved.stats.expenses,before.stats.expenses+pending.bill);
     assert.equal(await page.locator('dialog').evaluate(d=>d.open),false);await page.clock.runFor(2200);assert.ok((await save(page)).activeDay.remaining<before.activeDay.remaining,'Service resumes after resolution');
@@ -210,7 +210,7 @@ try {
 
   await scenario('far-delivery-ride-settles-once',async page=>{
     await click(page,'continue');const before=await save(page);assert.equal(await page.locator('#dialog-title').textContent(),'Đơn giao xa');
-    await page.clock.runFor(1100);await page.locator('[data-action="incident"][data-id="ride"]').click();
+    await page.clock.runFor(1300);await page.locator('[data-action="incident"][data-id="ride"]').click();
     assert.equal(await page.locator('#trip-canvas').isVisible(),true,'The scooter ride opens in the dialog');
     for(let second=0;second<40&&!(await page.locator('#dialog .modal-actions [data-action="close-modal"]').count());second++)await page.clock.runFor(1000);
     const after=await save(page);assert.equal(after.activeDay.pendingIncident,null);assert.ok(after.money>=before.money+15000,'Riding pays at least the courier fee');assert.equal(after.reviews.length,before.reviews.length+1,'The review is written once the order arrives');
@@ -219,9 +219,9 @@ try {
 
   await scenario('starship-flight-fuel-back-and-settlement',async page=>{
     await click(page,'continue');const before=await save(page),planet=G.PLANETS.find(row=>row.id===before.activeDay.pendingIncident.planet);assert.match(await page.locator('#dialog-title').textContent(),/Đơn tới/);
-    await page.clock.runFor(1100);await page.locator('[data-action="incident"][data-id="fly"]').click();
+    await page.clock.runFor(1300);await page.locator('[data-action="incident"][data-id="fly"]').click();
     assert.equal(await page.locator('[data-action="launch"]').count(),3,'Three fuel loads');await page.locator('[data-action="trip-back"]').click();
-    await page.clock.runFor(1100);assert.equal(await page.locator('[data-action="incident"][data-id="drone"]').count(),1,'Going back offers the drone again');
+    await page.clock.runFor(1300);assert.equal(await page.locator('[data-action="incident"][data-id="drone"]').count(),1,'Going back offers the drone again');
     await page.locator('[data-action="incident"][data-id="fly"]').click();await page.locator('[data-action="launch"][data-id="full"]').click();
     assert.equal(await page.locator('#trip-canvas').isVisible(),true,'The starship flight opens in the dialog');
     for(let second=0;second<120&&!(await page.locator('#dialog .modal-actions [data-action="close-modal"]').count());second++)await page.clock.runFor(1000);
@@ -237,6 +237,126 @@ try {
     assert.equal(ended.phase,'prep');assert.equal(ended.day,3);assert.equal(ended.history.length,1);assert.equal(ended.lastDay.served,1);
     await page.clock.runFor(5000);assert.deepEqual(await save(page),ended,'Settlement is not repeated after the incident');
   },{fixture:incidentFixture(true)});
+
+
+  // ---- Round 4: terms, what's new, the kitchen love story, neighbours, the mascot and the pet.
+  await scenario('terms-gate-blocks-until-accepted',async page=>{
+    await click(page,'continue');assert.equal(await page.locator('#dialog').evaluate(d=>d.open&&d.dataset.locked==='terms'),true,'Entering a shop asks for the terms first');
+    assert.equal(await page.locator('.modal-close').isVisible(),false,'The gate has no close button');
+    const enter=page.locator('[data-action="terms-accept"]');assert.equal(await enter.isDisabled(),true,'Entering waits for the tick');
+    await page.keyboard.press('Escape');await page.keyboard.press('Escape');assert.equal(await page.locator('#dialog').evaluate(d=>d.open),true,'Escape cannot skip the terms');
+    await page.locator('[data-action="terms-decline"]').click();assert.equal(await page.locator('[data-action="terms-reread"]').count(),1,'Declining explains and offers to read again');
+    await page.locator('[data-action="terms-reread"]').click();await page.locator('#dialog .meta-agree input').check();assert.equal(await enter.isDisabled(),false);await enter.click();
+    assert.equal(await page.locator('.prep').count(),1,'Agreeing enters the shop');assert.ok((await page.evaluate(()=>JSON.parse(localStorage.getItem('tiem-mi-cay-terms-v1')))).version>=1,'Acceptance is remembered');
+    await page.reload();await click(page,'continue');assert.equal(await page.locator('#dialog[data-locked="terms"]').count(),0,'The gate does not come back once accepted');
+    await click(page,'settings');await click(page,'terms-copy');assert.match(await page.locator('#dialog .modal-content').textContent(),/đồng ý ngày/,'Settings shows the acceptance date');
+  },{fixture:dayThreeFixture(true),terms:false});
+
+  await scenario('whats-new-shows-once-for-older-saves',async page=>{
+    await click(page,'continue');assert.equal(await page.locator('#dialog-title').textContent(),'Có gì mới ở tiệm?');assert.ok(await page.locator('.meta-news li').count()>=3,'The changelog lists what changed');
+    await close(page);assert.equal((await save(page)).lastNews,G.NEWS_VERSION,'The card is marked seen');
+    await page.reload();await click(page,'continue');assert.notEqual(await page.locator('#dialog').evaluate(d=>d.open?document.querySelector('#dialog-title')?.textContent:''),'Có gì mới ở tiệm?','It is not shown twice');
+  },{fixture:newsFixture()});
+
+  await scenario('kitchen-love-story-leave-morning-and-staff-card',async page=>{
+    await click(page,'continue');assert.equal(await page.locator('#dialog-title').textContent(),G.ROMANCE[0].title);
+    assert.equal(await page.locator('#dialog .drama-tag').count(),1,'The love story has its tag');assert.equal(await page.locator('#dialog .drama-medallion svg').count(),1,'Both cooks appear on the medallion');
+    assert.equal(await page.locator('#dialog .choice-hint').count(),2,'Each choice explains itself');assert.equal(await page.locator('#dialog [data-action="incident"]').first().getAttribute('data-id'),'grant');
+    await page.clock.runFor(1300);await item(page,'incident','grant');const granted=await save(page);
+    assert.equal(granted.romance.stage,1);assert.deepEqual(granted.staffAway.chef,[granted.day+1,granted.day+1],'Leave starts tomorrow');assert.equal(granted.activeDay.pendingIncident,null);
+    await click(page,'finish');await click(page,'force-finish');await close(page);await page.clock.runFor(50);
+    // A windfall card may come first (cards follow the reference's order); the cooks' note follows it.
+    for(let card=0;card<3&&!/nghỉ hôm nay/.test(await page.locator('#dialog-title').textContent());card++){await close(page);await page.clock.runFor(50);}
+    assert.match(await page.locator('#dialog-title').textContent(),/nghỉ hôm nay/,'The morning note says the cooks are off');await close(page);await page.clock.runFor(50);
+    await tab(page,'upgrades');await item(page,'upgrade-tab','staff');assert.equal(await page.locator('.staff-card .staff-away').count(),2,'Both staff cards show the leave');
+    await tab(page,'stock');await click(page,'clear-cart');await click(page,'open-day');assert.equal(await page.locator('#basket-button').isHidden(),true,"The chef's basket is gone while she is away");
+  },{fixture:romanceFixture()});
+
+  await scenario('neighbours-send-a-surprise-and-quota',async page=>{
+    await click(page,'continue');await page.locator('.sign-pill[data-action="neighbours"]').click();assert.equal(await page.locator('#dialog .neighbour-row').count(),G.NEIGHBOURS.length+1,'The street board lists every neighbour and the shop');
+    assert.match(await page.locator('.prank-quota').textContent(),/3\/3/);await page.locator('[data-action="prank-pick"]').first().click();
+    assert.equal(await page.locator('.prank-tile').count(),6,'Six surprises to choose from');await page.locator('[data-action="prank-send"][data-id$="|tour"]').click();
+    const sent=await save(page);assert.equal(sent.neighbours.sentToday.length,1);assert.equal(sent.neighbours.sent.at(-1).kind,'tour');
+    await page.locator('.sign-pill[data-action="neighbours"]').click();assert.match(await page.locator('.prank-quota').textContent(),/2\/3/);assert.equal(await page.locator('#dialog .neighbour-row button[disabled]').count(),1,'One surprise per neighbour a day');
+  },{fixture:dayThreeFixture(true)});
+
+  await scenario('neighbour-gifts-morning-card-returns-the-favour',async page=>{
+    await click(page,'continue');assert.equal(await page.locator('#dialog-title').textContent(),'Hôm qua quán có quà!');assert.equal(await page.locator('.gift-list li').count(),2);
+    await page.locator('#dialog [data-action="neighbours"]').click();assert.equal(await page.locator('#dialog-title').textContent(),'Hàng xóm trong phố');assert.ok(await page.locator('.neighbour-head').first().textContent()==='Trả lễ','Senders head the list');
+  },{fixture:giftsFixture()});
+
+  await scenario('mascot-tips-and-petting-the-cat',async page=>{
+    await click(page,'continue');await click(page,'mascot');assert.ok(await page.locator('#toast .toast-item.tone-tip').count()>=1,'The mascot says a tip');
+    await page.locator('[data-action="pet"]').click();assert.ok(await page.locator('#toast .toast-item.tone-good').count()>=1,'Petting the cat gets a reaction');
+  },{fixture:petFixture()});
+
+  // ---- Round 4 review: Escape and the morning cards, the terms gate on import and without storage, tips, sounds, labels.
+  await scenario('escape-keeps-the-morning-cards-coming',async page=>{
+    await click(page,'continue');assert.equal(await page.locator('#dialog-title').textContent(),'Quà cảm ơn từ hàng xóm');
+    // Escape closes a card the way × does, so the next card follows instead of waiting for some other dialog to close.
+    await page.keyboard.press('Escape');await page.clock.runFor(50);assert.match(await page.locator('#dialog-title').textContent(),/quay lại trả nợ/,'The debt card follows Escape');
+    await page.keyboard.press('Escape');await page.clock.runFor(50);assert.equal(await page.locator('#dialog-title').textContent(),'Hôm qua quán có quà!');
+    await page.keyboard.press('Escape');await page.clock.runFor(50);assert.equal(await page.locator('#dialog').evaluate(d=>d.open),false,'The chain ends with its last card');
+    await click(page,'settings');await close(page);await page.clock.runFor(50);assert.equal(await page.locator('#dialog').evaluate(d=>d.open),false,'No stale card was left waiting for the next dialog');
+  },{fixture:morningFixture()});
+
+  await scenario('day-summary-escape-starts-the-morning-cards',async page=>{
+    await click(page,'continue');await click(page,'finish');await click(page,'force-finish');assert.match(await page.locator('#dialog-title').textContent(),/^Một ngày/);
+    await page.keyboard.press('Escape');await page.clock.runFor(50);assert.equal(await page.locator('#dialog-title').textContent(),'Hôm qua quán có quà!','The surprises card follows a summary closed with Escape');
+  },{fixture:summaryGiftsFixture()});
+
+  await scenario('situation-card-holds-through-repeated-escape',async page=>{
+    await click(page,'continue');await page.clock.runFor(1300);
+    // Chrome lets a second Escape close a dialog whose 'cancel' was prevented; the key itself is stopped now.
+    for(let press=0;press<3;press++)await page.keyboard.press('Escape');
+    assert.equal(await page.locator('#dialog').evaluate(d=>d.open),true,'The situation card stays until it is answered');
+    assert.equal(await page.locator('[data-action="incident"]').first().isDisabled(),false,'and it is not locked again');
+  },{fixture:incidentFixture(false)});
+
+  await scenario('import-goes-through-the-terms-gate',async page=>{
+    const file='test-results/parity-import-round4.json';await writeFile(file,JSON.stringify(importFixture()));
+    const chooser=page.waitForEvent('filechooser');await page.locator('.welcome-links [data-action="import"]').click();await (await chooser).setFiles(file);
+    await page.locator('#confirm-import').click();assert.equal(await page.locator('#dialog').evaluate(d=>d.open&&d.dataset.locked==='terms'),true,'An imported shop is entered through the terms gate');
+    assert.equal(await page.locator('.prep').count(),0,'The shop waits behind the gate');
+    await page.locator('#dialog .meta-agree input').check();await page.locator('[data-action="terms-accept"]').click();await page.clock.runFor(50);
+    assert.equal(await page.locator('.shop-sign h1').textContent(),'Tiệm nhập bản lưu');assert.equal(await page.locator('#dialog-title').textContent(),'Quà cảm ơn từ hàng xóm','The imported shop shows its own morning card');
+  },{fixture:dayThreeFixture(true),terms:false});
+
+  await scenario('terms-accepted-when-storage-refuses-it',async page=>{
+    await page.addInitScript(()=>{const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='tiem-mi-cay-terms-v1')throw new DOMException('Storage is full','QuotaExceededError');return set.call(this,key,value);};});await page.reload();
+    await click(page,'continue');await page.locator('#dialog .meta-agree input').check();await page.locator('[data-action="terms-accept"]').click();
+    assert.equal(await page.locator('.prep').count(),1,'Agreeing enters the shop even when the browser cannot keep the answer');assert.equal(await page.locator('#dialog[data-locked]').count(),0,'The gate does not come back in a loop');
+    assert.match(await page.locator('#toast').textContent(),/lần sau sẽ hỏi lại/,'The player is told it will ask again next visit');
+  },{fixture:dayThreeFixture(true),terms:false});
+
+  await scenario('mascot-taps-always-say-something-new',async page=>{
+    await click(page,'continue');await page.evaluate(()=>{window.__tips=0;new MutationObserver(list=>{for(const m of list)for(const node of m.addedNodes)if(node.classList?.contains('tone-tip'))window.__tips++;}).observe(document.querySelector('#toast'),{childList:true});});
+    // A lone situational line (the debt) came back on most taps, and the toast drops a line that is still on screen.
+    for(let tap=1;tap<=12;tap++){await click(page,'mascot');assert.equal(await page.evaluate(()=>window.__tips),tap,`Tap ${tap} says a new tip`);}
+  },{fixture:debtFixture()});
+
+  await scenario('chili-and-toppings-play-one-sound-each',async page=>{
+    await page.route('**/src/audio.js',async route=>{const response=await route.fetch();await route.fulfill({response,body:(await response.text()).replace('function play(cue, options) {','function play(cue, options) { (globalThis.__cues ||= []).push(cue);')});});await page.reload();
+    await click(page,'continue');const order=(await save(page)).activeDay.orders[0],cues=()=>page.evaluate(()=>(globalThis.__cues||[]).splice(0));
+    await click(page,'bowl');await item(page,'broth',order.broth);await cues();
+    await page.locator('[data-action="topping"]:not([disabled])').first().click();assert.deepEqual(await cues(),['tap','plop'],'A topping taps, then plops');
+    await click(page,'chili');assert.deepEqual(await cues(),['tap','squeeze'],'The chili squeezes once, not its squirt and the squeeze together');
+  },{fixture:soundFixture()});
+
+  await scenario('neighbour-rows-name-their-shop-and-wait-out-the-challenge',async page=>{
+    await click(page,'continue');await page.locator('.sign-pill[data-action="neighbours"]').click();
+    const labels=await page.locator('#dialog [data-action="prank-pick"]').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label')||''));
+    assert.equal(labels.length,G.NEIGHBOURS.length);for(const row of G.NEIGHBOURS)assert.ok(labels.some(label=>label.includes(row.name)),`A button names ${row.name}`);
+    await close(page);await click(page,'records');await click(page,'challenge');await click(page,'menu');await page.locator('#dialog [data-action="neighbours"]').click();
+    assert.notEqual(await page.locator('#dialog-title').textContent(),'Hàng xóm trong phố','The challenge shift has no street board');assert.match(await page.locator('#toast').textContent(),/Ca thử thách/,'It says the neighbours wait at the main shop');
+  },{fixture:dayThreeFixture(true)});
+
+  await scenario('dark-theme-new-labels-stay-readable',async page=>{
+    await click(page,'continue');await page.evaluate(()=>document.querySelector('.daily-card .event-note').insertAdjacentHTML('afterend','<button class="update-pill" data-action="apply-update">✨ Có bản mới · cập nhật ngay</button>'));
+    await page.locator('.sign-pill[data-action="neighbours"]').click();
+    const ratios=await page.evaluate(()=>{const lum=color=>{const [r,g,b]=color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4;});return .2126*r+.7152*g+.0722*b;};const back=node=>{for(let el=node;el;el=el.parentElement){const color=getComputedStyle(el).backgroundColor;if(color!=='transparent'&&!/,\s*0\)$/.test(color))return color;}return 'rgb(255, 255, 255)';};return Object.fromEntries(['.neighbour-head','.board-rank','.prank-quota b','.update-pill'].map(selector=>{const node=document.querySelector(selector),[a,b]=[lum(getComputedStyle(node).color),lum(back(node))].sort((x,y)=>y-x);return [selector,(a+.05)/(b+.05)];}));});
+    for(const [selector,ratio] of Object.entries(ratios))assert.ok(ratio>=4.5,`${selector} reads at ${ratio.toFixed(2)}:1 in the dark theme`);
+  },{fixture:darkFixture()});
 
   for(const size of [{width:375,height:812},{width:390,height:844},{width:1440,height:900},{width:1024,height:600},{width:844,height:390}]){
     await scenario(`responsive-${size.width}x${size.height}`,async page=>{
@@ -254,12 +374,14 @@ try {
 }
 const failures=results.filter(r=>!r.passed);console.log(`Parity browser checks: ${results.length-failures.length}/${results.length} passed.`);for(const failure of failures)console.error(`${failure.name}: ${failure.error}`);if(failures.length)process.exitCode=1;
 
-async function scenario(name,run,{fixture,viewport={width:1440,height:900}}={}){
+// ONLY=<text> runs just the scenarios whose name contains it (handy while iterating).
+async function scenario(name,run,{fixture,viewport={width:1440,height:900},terms=true}={}){
+  if(process.env.ONLY&&!process.env.ONLY.split(',').some(part=>name.includes(part)))return;
   const context=await browser.newContext({viewport,acceptDownloads:true});const page=await context.newPage();page.setDefaultTimeout(8000);
   page.on('pageerror',e=>errors.push(`${name}: ${e.message}`));page.on('response',r=>{if(r.status()>=400)badRequests.push(`${name}: ${r.status()} ${r.url()}`)});page.on('request',r=>{if(!r.url().startsWith(url)&&!r.url().startsWith('blob:')&&!r.url().startsWith('data:'))externalRequests.push(r.url())});
   try{
     await page.clock.install({time:new Date('2026-09-30T00:00:00Z')});await page.clock.pauseAt(new Date('2026-09-30T00:00:01Z'));
-    await page.addInitScript(({fixture,key})=>{Math.random=()=>.5;if(!sessionStorage.getItem('parity-initialized')){if(fixture)localStorage.setItem(key,JSON.stringify(fixture));localStorage.setItem('tiem-mi-cay-preferences-v1',JSON.stringify({sound:false,motion:false,theme:'light'}));sessionStorage.setItem('parity-initialized','true')}},{fixture,key:G.SAVE_KEY});
+    await page.addInitScript(({fixture,key,terms})=>{Math.random=()=>.5;if(!sessionStorage.getItem('parity-initialized')){if(fixture)localStorage.setItem(key,JSON.stringify(fixture));localStorage.setItem('tiem-mi-cay-preferences-v1',JSON.stringify({sound:false,motion:false,theme:'light'}));if(terms)localStorage.setItem('tiem-mi-cay-terms-v1',JSON.stringify({version:99,at:0}));sessionStorage.setItem('parity-initialized','true')}},{fixture,key:G.SAVE_KEY,terms});
     await page.goto(url);await page.evaluate(()=>document.fonts.ready);await run(page);results.push({name,passed:true});console.log(`PASS ${name}`);
   }catch(error){results.push({name,passed:false,error:error.stack});await page.screenshot({path:`test-results/parity-failed-${name}.png`,fullPage:true,animations:'disabled'}).catch(()=>{});console.error(`FAIL ${name}: ${error.message}`)}finally{await context.close();}
 }
@@ -275,6 +397,20 @@ async function hitTest(locator){return locator.evaluate(element=>{const r=elemen
 function stock(state,quantity=15){assert.ok(G.buyCart(state,Object.fromEntries(state.unlocked.map(id=>[id,quantity]))).ok);return state;}
 function openFixture(){const state=stock(G.createGame('Tiệm kiểm tra ca bán'));state.settings.sound=false;state.settings.motion=false;assert.ok(G.beginDay(state).ok);assert.ok(G.createOrder(state,()=>.5).ok);assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
 function advancedFixture(){const state=G.createGame('Tiệm đủ món');state.xp=8000;state.money=100000000;state.settings.sound=false;state.settings.motion=false;state.unlocked=G.INGREDIENTS.map(i=>i.id);stock(state,15);for(const id of ['pot2','pot3'])assert.ok(G.buyUpgrade(state,id).ok);state.reviews=[{id:'day-1-order-101',day:1,name:'Mai',rating:5,stars0:5,cause:'great',text:'Mì ngon!',thread:[],xp:false},{id:'day-1-order-102',day:1,name:'An',rating:3,stars0:3,cause:'wait',text:'Mong phục vụ nhanh hơn.',thread:[],xp:false}];state.reputation=4;assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
+function newsFixture(){const state=dayThreeFixture(true);delete state.lastNews;return state;}
+function romanceFixture(){const state=G.createGame('Tiệm chuyện tình');state.day=12;state.xp=6200;state.money=5000000;state.settings.sound=false;state.settings.motion=false;state.unlocked=G.INGREDIENTS.map(i=>i.id);stock(state,15);for(const id of ['chef','broth'])assert.ok(G.hireStaff(state,id).ok);assert.ok(G.beginDay(state,()=>.99).ok);assert.ok(G.forceStory(state,'romance',()=>.3).ok);assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
+function giftsFixture(){const state=dayThreeFixture(true);state.neighbours.received=[{from:'trasua',kind:'rat',day:2},{from:'pho',kind:'tour',day:2}];state.morning=[{kind:'neighbourGifts',day:2}];assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}),'The gifts fixture is a valid save');return state;}
+function petFixture(){const state=dayThreeFixture(true);state.decoration.owned.push('pet_cat');state.decoration.selected.pet='pet_cat';return state;}
+function dayFixture(day,name='Tiệm buổi sáng'){const state=G.createGame(name);state.day=day;state.money=1000000;state.settings.sound=false;state.settings.motion=false;return stock(state);}
+function valid(state,what){assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}),`The ${what} fixture is a valid save`);return state;}
+// Three morning cards in the reference's order: a windfall, a debt paid back, yesterday's surprises.
+function morningFixture(){const state=dayFixture(4);state.neighbours.received=[{from:'trasua',kind:'rat',day:3},{from:'pho',kind:'tour',day:3}];state.morning=[{kind:'gift',variant:0,amount:50000},{kind:'debtPaid',name:'Anh Tuấn',amount:30000},{kind:'neighbourGifts',day:3}];return valid(state,'morning');}
+// A day under way whose closing brings the neighbours' card (a surprise met today).
+function summaryGiftsFixture(){const state=dayFixture(4);state.neighbours.received=[{from:'trasua',kind:'rat',day:4}];assert.ok(G.beginDay(state).ok);return valid(state,'summary');}
+function importFixture(){const state=dayFixture(5,'Tiệm nhập bản lưu');state.morning=[{kind:'gift',variant:0,amount:50000}];return valid(state,'import');}
+function debtFixture(){const state=dayThreeFixture(true);state.debt=200000;state.loansTaken=1;state.loanInstallment=40000;return valid(state,'debt');}
+function soundFixture(){const state=openFixture();state.settings.sound=true;return valid(state,'sound');}
+function darkFixture(){const state=dayThreeFixture(true);state.settings.theme='dark';return valid(state,'dark');}
 function dayThreeFixture(withStock){const state=G.createGame('Tiệm ngày ba');state.day=3;state.money=1000000;state.settings.sound=false;state.settings.motion=false;if(withStock)stock(state);assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
 function washingFixture(){const state=G.createGame('Tiệm rửa tô');state.day=2;state.money=1000000;state.settings.sound=false;state.settings.motion=false;stock(state);assert.ok(G.beginDay(state).ok);for(let i=0;i<3;i++){const {order}=G.createOrder(state,()=>.5);assert.ok(order);G.takeBowl(state);G.addBroth(state,order.broth);for(const id of order.toppings)G.addTopping(state,id);for(let n=0;n<order.spice;n++)G.addChili(state);G.startPot(state);G.tickDay(state,3.1,()=>.5);G.collectPot(state);assert.ok(G.serveBowl(state,()=>.5).ok)}assert.equal(G.finishDay(state).finished,true);assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}
 function tripFixture(kind){const flight=kind==='flight',state=G.createGame('Tiệm giao xa');state.day=10;state.money=5000000;state.xp=flight?6000:950;state.settings.sound=false;state.settings.motion=false;state.upgrades[flight?'spaceport':'delivery']=true;assert.ok(G.buyCart(state,{bowls:30,noodles:30,kimchi:20,beef:20,sausage:20}).ok);const rolls=flight?[.99,.99,.99,.1,.5]:[.99,.99,.99];let roll=0;assert.ok(G.beginDay(state,()=>roll<rolls.length?rolls[roll++]:.99).ok);state.activeDay.nextArrival=999;G.tickDay(state,flight?90:22.1,()=>flight?.5:.1);const order=state.activeDay.orders.find(row=>flight?row.planet:row.far);assert.ok(order);G.selectOrder(state,order.id);G.takeBowl(state);G.addBroth(state,order.broth);for(const id of order.toppings)G.addTopping(state,id);for(let n=0;n<order.spice;n++)G.addChili(state);G.startPot(state);G.tickDay(state,3.3,()=>.5);G.collectPot(state);assert.ok(G.serveBowl(state,()=>.5).ok);assert.equal(state.activeDay.pendingIncident.type,flight?'flight':'ride');assert.ok(G.loadGame({getItem:()=>JSON.stringify(state)}));return state;}

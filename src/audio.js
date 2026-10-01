@@ -16,6 +16,9 @@
 export const CUES = Object.freeze([
   'tap', 'bowl', 'broth', 'topping', 'chili', 'potStart', 'potReady', 'potBurn', 'serveGood', 'serveBad', 'coin',
   'tip', 'customerArrive', 'customerLeave', 'levelUp', 'goal', 'incident', 'success', 'fail', 'chime', 'pageTurn',
+  // Kitchen and street details (src/fx.js effects, pets, the delivery ride): each lasts at most 0.6 s.
+  'pop', 'splash', 'drip', 'plop', 'squeeze', 'sizzle', 'puff', 'whoosh', 'clink', 'slurp', 'heart', 'boing', 'swish',
+  'hop', 'meow', 'woof', 'squeak', 'bell', 'honk', 'thud', 'fuel', 'flash', 'paper',
 ]);
 
 const CUE_SET = new Set(CUES);
@@ -281,6 +284,136 @@ const SYNTHS = {
   pageTurn(v, t, k) {
     v.noise({ t, type: 'bandpass', f: 1300 * k, to: 4200 * k, glide: 0.18, q: 0.9, peak: 0.15, a: 0.07, hold: 0.03, d: 0.12 });
     v.noise({ t: t + 0.18, type: 'highpass', f: 2600 * k, q: 0.7, peak: 0.05, a: 0.004, d: 0.05 });
+  },
+
+  // ---- Kitchen and street details. Short (at most 0.6 s) and quiet, so several can overlap during a busy service.
+  // Bright bubble pop: the noodles reached the ideal zone.
+  pop(v, t, k) {
+    v.tone({ t, f: 520 * k, to: 1560 * k, glide: 0.035, peak: 0.13, a: 0.002, d: 0.07 });
+    v.tone({ t: t + 0.012, f: 2350 * k, peak: 0.035, a: 0.001, d: 0.035 });
+    v.noise({ t, type: 'highpass', f: 3800 * k, q: 0.8, peak: 0.03, a: 0.001, d: 0.02 });
+  },
+  // Noodles land in the broth: a falling wash of water, a soft plunk and a few droplets.
+  splash(v, t, k) {
+    v.noise({ t, type: 'bandpass', f: 1900 * k, to: 520 * k, glide: 0.22, q: 0.9, peak: 0.14, a: 0.006, d: 0.26 });
+    v.tone({ t, f: 300 * k, to: 140 * k, glide: 0.09, type: 'triangle', peak: 0.1, a: 0.003, d: 0.12 });
+    for (const [dt, f] of [[0.06, 760], [0.11, 980], [0.17, 640], [0.24, 1150]]) v.tone({ t: t + dt, f: f * k, to: f * 1.8 * k, glide: 0.03, peak: 0.035, a: 0.002, d: 0.045 });
+  },
+  // Three droplets, each a tiny rising blip.
+  drip(v, t, k) {
+    for (const [dt, f, peak] of [[0, 980, 0.08], [0.09, 1240, 0.06], [0.2, 860, 0.045]]) v.tone({ t: t + dt, f: f * k, to: f * 1.9 * k, glide: 0.025, peak, a: 0.002, d: 0.05 });
+  },
+  // A topping lands in the bowl: a round falling plop with a little bubble after it.
+  plop(v, t, k) {
+    v.tone({ t, f: 360 * k, to: 150 * k, glide: 0.07, peak: 0.15, a: 0.003, d: 0.11 });
+    v.noise({ t, type: 'lowpass', f: 600 * k, q: 0.7, peak: 0.04, a: 0.002, d: 0.04 });
+    v.tone({ t: t + 0.05, f: 680 * k, to: 1020 * k, glide: 0.04, peak: 0.03, a: 0.003, d: 0.05 });
+  },
+  // Wet squelch of the chili bottle: a narrow, fluttering noise band and a squeak of air.
+  squeeze(v, t, k) {
+    v.noise({ t, type: 'bandpass', f: 1100 * k, to: 620 * k, glide: 0.16, q: 2.2, peak: 0.18, a: 0.02, hold: 0.05, d: 0.09, flutter: 4 });
+    v.tone({ t: t + 0.01, f: 300 * k, to: 520 * k, glide: 0.08, type: 'triangle', peak: 0.04, a: 0.01, d: 0.1 });
+    v.tone({ t: t + 0.15, f: 380 * k, to: 190 * k, glide: 0.05, peak: 0.08, a: 0.003, d: 0.07 });
+  },
+  // Crackling sizzle for the hottest chili and for fire.
+  sizzle(v, t, k) {
+    v.noise({ t, type: 'highpass', f: 3600 * k, q: 0.7, peak: 0.08, a: 0.03, hold: 0.24, d: 0.24, flutter: 14 });
+    v.noise({ t, type: 'bandpass', f: 1400 * k, q: 0.9, peak: 0.04, a: 0.04, hold: 0.18, d: 0.22, flutter: 6 });
+    v.tone({ t, f: 180 * k, to: 120 * k, glide: 0.3, type: 'triangle', peak: 0.04, a: 0.05, d: 0.3 });
+  },
+  // Steam puffs from a pot that starts boiling.
+  puff(v, t, k) {
+    v.noise({ t, type: 'bandpass', f: 1300 * k, to: 480 * k, glide: 0.2, q: 0.6, peak: 0.19, a: 0.035, d: 0.22 });
+    v.noise({ t, type: 'lowpass', f: 420 * k, q: 0.7, peak: 0.1, a: 0.02, d: 0.16 });
+  },
+  // A bowl flies to the guest: a rising band of air.
+  whoosh(v, t, k) {
+    v.noise({ t, type: 'bandpass', f: 420 * k, to: 2400 * k, glide: 0.22, q: 1.1, peak: 0.19, a: 0.12, d: 0.2 });
+    v.noise({ t: t + 0.04, type: 'highpass', f: 2800 * k, q: 0.7, peak: 0.04, a: 0.08, d: 0.14 });
+  },
+  // Two quick chopstick ticks on the bowl's rim.
+  clink(v, t, k) {
+    for (const [dt, f, peak] of [[0, 2650, 0.08], [0.075, 2980, 0.065]]) {
+      v.tone({ t: t + dt, f: f * k, peak, a: 0.001, d: 0.09 });
+      v.tone({ t: t + dt, f: f * 2.73 * k, peak: peak * 0.35, a: 0.001, d: 0.04 });
+      v.noise({ t: t + dt, type: 'highpass', f: 5200 * k, q: 0.8, peak: 0.025, a: 0.001, d: 0.012 });
+    }
+  },
+  // A short happy noodle slurp: a resonant noise sweep upwards, then a quicker second one.
+  slurp(v, t, k) {
+    v.noise({ t, type: 'bandpass', f: 520 * k, to: 2300 * k, glide: 0.24, q: 2, peak: 0.2, a: 0.04, hold: 0.12, d: 0.08, flutter: 3 });
+    v.noise({ t: t + 0.3, type: 'bandpass', f: 800 * k, to: 2900 * k, glide: 0.12, q: 2, peak: 0.15, a: 0.025, hold: 0.04, d: 0.07 });
+  },
+  // Soft sparkle chime for hearts.
+  heart(v, t, k) {
+    bell(v, t, 1567.98 * k, 0.07, 0.36, 3.01);
+    bell(v, t + 0.07, 2093 * k, 0.06, 0.42, 3.01);
+    v.noise({ t, type: 'highpass', f: 7000 * k, q: 0.7, peak: 0.02, a: 0.04, d: 0.18 });
+  },
+  // A springy boing for a combo going up.
+  boing(v, t, k) {
+    v.tone({ t, f: 240 * k, to: 560 * k, glide: 0.08, type: 'triangle', peak: 0.12, a: 0.004, d: 0.2 });
+    v.tone({ t: t + 0.08, f: 560 * k, to: 420 * k, glide: 0.12, peak: 0.06, a: 0.004, d: 0.2 });
+    v.tone({ t: t + 0.17, f: 470 * k, to: 520 * k, glide: 0.08, peak: 0.03, a: 0.004, d: 0.14 });
+  },
+  // The mop wiping the floor: there and back.
+  swish(v, t, k) {
+    v.noise({ t, type: 'bandpass', f: 650 * k, to: 1900 * k, glide: 0.14, q: 0.8, peak: 0.18, a: 0.05, d: 0.11 });
+    v.noise({ t: t + 0.17, type: 'bandpass', f: 1900 * k, to: 760 * k, glide: 0.14, q: 0.8, peak: 0.13, a: 0.05, d: 0.12 });
+  },
+  // A pet hops: a short rising blip.
+  hop(v, t, k) {
+    v.tone({ t, f: 480 * k, to: 1150 * k, glide: 0.07, peak: 0.1, a: 0.003, d: 0.09 });
+    v.tone({ t: t + 0.06, f: 1150 * k, to: 1300 * k, glide: 0.03, type: 'triangle', peak: 0.03, a: 0.002, d: 0.05 });
+  },
+  // A tiny cat chirp: a filtered reedy rise and fall ("mrr-ew").
+  meow(v, t, k) {
+    v.tone({ t, f: 620 * k, to: 1040 * k, glide: 0.11, type: 'sawtooth', peak: 0.055, a: 0.02, hold: 0.05, d: 0.1, lp: { f: 2200 * k, to: 1500 * k, glide: 0.2, q: 3 } });
+    v.tone({ t: t + 0.15, f: 1040 * k, to: 680 * k, glide: 0.16, type: 'sawtooth', peak: 0.045, a: 0.01, hold: 0.03, d: 0.14, lp: { f: 1800 * k, to: 1100 * k, glide: 0.18, q: 2.5 } });
+  },
+  // A tiny puppy yip.
+  woof(v, t, k) {
+    v.tone({ t, f: 480 * k, to: 900 * k, glide: 0.035, type: 'sawtooth', peak: 0.08, a: 0.005, d: 0.08, lp: { f: 1900 * k, to: 900 * k, glide: 0.08, q: 2 } });
+    v.tone({ t: t + 0.04, f: 900 * k, to: 560 * k, glide: 0.06, type: 'square', peak: 0.04, a: 0.004, d: 0.07, lp: 1400 * k });
+    v.noise({ t, type: 'bandpass', f: 1100 * k, q: 1.4, peak: 0.03, a: 0.003, d: 0.05 });
+  },
+  // A hamster's (or the alley rat's) squeak, up then down.
+  squeak(v, t, k) {
+    v.tone({ t, f: 1900 * k, to: 2700 * k, glide: 0.05, type: 'square', peak: 0.06, a: 0.004, d: 0.06, lp: 4200 * k });
+    v.tone({ t: t + 0.08, f: 2600 * k, to: 2050 * k, glide: 0.06, type: 'square', peak: 0.05, a: 0.004, d: 0.06, lp: 4000 * k });
+  },
+  // Bicycle bell, ding-ding (struck with the bell() helper above).
+  bell(v, t, k) {
+    for (const dt of [0, 0.16]) {
+      bell(v, t + dt, 2380 * k, 0.085, 0.32, 2.37);
+      v.tone({ t: t + dt, f: 3150 * k, peak: 0.025, a: 0.002, d: 0.18 });
+    }
+  },
+  // A soft scooter horn, beep-beep, two reedy notes a third apart.
+  honk(v, t, k) {
+    for (const dt of [0, 0.17]) for (const f of [415.3, 523.25]) v.tone({ t: t + dt, f: f * k, type: 'square', peak: 0.04, a: 0.01, hold: 0.07, d: 0.05, lp: 1500 * k });
+  },
+  // A bump on the delivery ride: a low thud.
+  thud(v, t, k) {
+    v.tone({ t, f: 150 * k, to: 52 * k, glide: 0.12, peak: 0.2, a: 0.003, d: 0.18 });
+    v.noise({ t, type: 'lowpass', f: 320 * k, q: 0.8, peak: 0.09, a: 0.002, d: 0.08 });
+    v.noise({ t: t + 0.01, type: 'bandpass', f: 900 * k, q: 1, peak: 0.03, a: 0.002, d: 0.05 });
+  },
+  // Fuel picked up: a quick rising arpeggio over a sliding hum.
+  fuel(v, t, k) {
+    [659.25, 880, 1318.51].forEach((f, i) => v.tone({ t: t + i * 0.055, f: f * k, type: 'triangle', peak: 0.08, a: 0.003, d: i === 2 ? 0.22 : 0.09 }));
+    v.tone({ t, f: 330 * k, to: 660 * k, glide: 0.16, peak: 0.04, a: 0.01, d: 0.16 });
+  },
+  // Camera shutter: two clicks.
+  flash(v, t, k) {
+    v.noise({ t, type: 'highpass', f: 2600 * k, q: 0.8, peak: 0.12, a: 0.001, d: 0.022 });
+    v.tone({ t, f: 1300 * k, to: 700 * k, glide: 0.02, type: 'square', peak: 0.03, a: 0.001, d: 0.025, lp: 3000 * k });
+    v.noise({ t: t + 0.065, type: 'highpass', f: 2200 * k, q: 0.8, peak: 0.09, a: 0.001, d: 0.03 });
+  },
+  // A page flipped: a papery swish and a tap.
+  paper(v, t, k) {
+    v.noise({ t, type: 'bandpass', f: 2400 * k, to: 1100 * k, glide: 0.12, q: 0.7, peak: 0.17, a: 0.03, d: 0.09 });
+    v.noise({ t: t + 0.12, type: 'highpass', f: 3200 * k, q: 0.7, peak: 0.06, a: 0.003, d: 0.04 });
   },
 };
 

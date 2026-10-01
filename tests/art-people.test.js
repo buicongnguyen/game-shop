@@ -233,7 +233,7 @@ test('a label makes the picture meaningful, with the text escaped', () => {
   checkSvg(svg, '0 0 80 80');
   assert.ok(svg.includes('role="img" aria-label="Cô &quot;Lụa&quot; &lt;3 &amp; bạn"'));
   assert.ok(!svg.includes('aria-hidden'));
-  assert.ok(staffFace('chef', { label: 'Bé Na' }).includes('role="img" aria-label="Bé Na"'));
+  assert.ok(staffFace('chef', { label: 'Bé Ngò' }).includes('role="img" aria-label="Bé Ngò"'));
   assert.ok(mascot('cheer', { label: 'Ớt' }).includes('aria-label="Ớt"'));
   assert.ok(mascot('cheer').includes('aria-hidden="true"'));
 });

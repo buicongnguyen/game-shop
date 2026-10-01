@@ -1,0 +1,48 @@
+/* The living street (src/life.js): a layer over the street backdrop and under the lane, title, counter (z 1), the
+   puddle (1), the coach (3) and the stamp (4). It is decoration only: no pointer events, nothing focusable, no
+   in-flow size. Actors are placed in the backdrop's 400 × 220 units on .life-stage, which gets the backdrop's own
+   cover transform from life.js. Every moving node animates transform or opacity only. */
+.street-life{position:absolute;inset:0;z-index:0;overflow:hidden;border-radius:inherit;pointer-events:none;contain:strict}
+.street-life,.street-life *{pointer-events:none}
+.life-stage{position:absolute;left:0;top:0;width:400px;height:220px;transform-origin:0 0}
+.life-actor,.life-part,.life-rotor,.life-arm,.life-win,.life-rect{position:absolute;left:0;top:0;transform-origin:0 0}
+.life-clip{overflow:hidden}
+/* Far things (a cloud, a shooting star) move inside the open-sky mask, behind roofs, poles and the awning lights. */
+.life-sky{position:absolute;left:0;top:0;width:400px;height:220px;-webkit-mask-size:400px 220px;mask-size:400px 220px;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+.life-strip{position:absolute;left:0;top:0;display:block;max-width:none;max-height:none;margin:0;border:0;user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
+
+/* Loops (durations and phase delays are set inline per actor). */
+/* Two frames side by side in one picture: a stepped slide shows one, then the other (walk, wheels, wings). */
+.life-l-strip2{animation:life-strip2 .7s steps(2) infinite}
+@keyframes life-strip2{to{transform:translateX(-100%)}}
+/* A sitting pet breathes. */
+.life-l-breathe{animation:life-breathe 2.6s ease-in-out infinite alternate}
+@keyframes life-breathe{to{transform:scale(1.025,1.05)}}
+/* A kite swings on its string about the roof it is tied to. */
+.life-l-sway{animation:life-sway 3.2s ease-in-out infinite alternate}
+@keyframes life-sway{from{transform:rotate(-4deg)}to{transform:rotate(4.5deg)}}
+/* Moths circle the lamp on a rotor. */
+.life-l-spin{animation:life-spin 2s linear infinite}
+.life-l-spin.life-ccw{animation-direction:reverse}
+@keyframes life-spin{to{transform:rotate(360deg)}}
+/* A bead swells under the wire, then drops. */
+.life-l-drip{animation:life-drip 2.8s ease-in infinite}
+@keyframes life-drip{0%{opacity:0;transform:translateY(0) scale(.25)}12%{opacity:1}58%{transform:translateY(0) scale(1)}64%{transform:translateY(.6px) scale(.92,1.18)}94%{opacity:.85}100%{opacity:0;transform:translateY(24px) scale(.85,1.25)}}
+/* A splash crown on the wet road. */
+.life-l-splash{animation:life-splash 1.6s ease-out infinite}
+@keyframes life-splash{0%,55%{opacity:0;transform:scale(.3,.2)}62%{opacity:.95;transform:scale(.8,.9)}100%{opacity:0;transform:scale(1.15,1)}}
+/* A sleepy pet's zz drifts up. */
+.life-l-zz{animation:life-zz 3.6s ease-out infinite}
+@keyframes life-zz{0%,45%{opacity:0;transform:translate(0,0) scale(.5)}58%{opacity:1}100%{opacity:0;transform:translate(3px,-9px) scale(1)}}
+
+/* A sudden shower: slanting streaks like the backdrop's rain days (.street-art.rain::before), on the life layer. */
+.life-rain{background:repeating-linear-gradient(104deg,transparent 0 11px,#e8f4ff40 11px 12.5px,transparent 12.5px 26px);animation:life-rain .45s linear infinite}
+@keyframes life-rain{to{transform:translate(-11px,48px)}}
+
+/* Paused with the game: while a dialog is open, and on life.pause() or a hidden tab. */
+/* life.js toggles .life-paused for open dialogs and hidden tabs; a body:has(dialog[open]) rule would restyle the whole
+   page on every style pass. */
+.street-life.life-paused *{animation-play-state:paused!important}
+/* Motion off: no loops (life.js also clears its actors and stops spawning). */
+.reduced-motion .street-life *{animation:none!important}
+@media (prefers-reduced-motion:reduce){.street-life *{animation:none!important}}

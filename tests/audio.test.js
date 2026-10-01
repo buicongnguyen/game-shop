@@ -2,8 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CUES, createAudio } from '../src/audio.js';
 
+// Kitchen and street details (src/fx.js effects, pets, the delivery ride).
+const DETAILS = ['pop', 'splash', 'drip', 'plop', 'squeeze', 'sizzle', 'puff', 'whoosh', 'clink', 'slurp', 'heart', 'boing', 'swish',
+  'hop', 'meow', 'woof', 'squeak', 'bell', 'honk', 'thud', 'fuel', 'flash', 'paper'];
 const LISTED = ['tap', 'bowl', 'broth', 'topping', 'chili', 'potStart', 'potReady', 'potBurn', 'serveGood', 'serveBad', 'coin', 'tip',
-  'customerArrive', 'customerLeave', 'levelUp', 'goal', 'incident', 'success', 'fail', 'chime', 'pageTurn'];
+  'customerArrive', 'customerLeave', 'levelUp', 'goal', 'incident', 'success', 'fail', 'chime', 'pageTurn', ...DETAILS];
 
 // Minimal Web Audio stand-in that records every node and automation call and rejects invalid values like browsers do.
 class FakeParam {
@@ -160,6 +163,33 @@ test('every cue schedules short, self-stopping voices; pitch shifts and unknown 
   assert.equal(tapHz({ pitch: Number.NaN }), base);
   assert.equal(playNodes(audio, ctx, 'nope').nodes.length, 0);
   assert.equal(audio.play('constructor'), false);
+  assert.deepEqual(ctx.errors, []);
+  audio.dispose();
+});
+
+test('kitchen and street details are short (at most 0.6 s), quiet, pitch-shiftable and never stack', () => {
+  const { audio, ctx } = unlocked();
+  for (const cue of DETAILS) {
+    ctx.currentTime += 5;
+    const { played, nodes } = playNodes(audio, ctx, cue);
+    assert.equal(played, true, cue);
+    const sources = nodes.filter(isSource);
+    assert.ok(sources.length >= 2 && sources.length <= 9, `${cue} uses a handful of voices (${sources.length})`);
+    const length = Math.max(...sources.map(source => source.stopAt)) - ctx.currentTime;
+    assert.ok(length <= 0.6, `${cue} lasts ${length.toFixed(3)} s`);
+    const peak = Math.max(...nodes.filter(node => node.kind === 'gain').flatMap(node => node.gain.events.map(event => event.value)));
+    assert.ok(peak <= 0.2, `${cue} stays quiet (peak ${peak})`);
+    assertEnvelopes(nodes, cue);
+  }
+  // The caller varies pitch by about ±5% (a semitone is ~6%): every frequency of the cue follows.
+  const firstHz = (cue, options) => { ctx.currentTime += 1; return playNodes(audio, ctx, cue, options).nodes.find(node => node.kind === 'oscillator').frequency.events[0].value; };
+  const base = firstHz('pop');
+  assert.ok(Math.abs(firstHz('pop', { pitch: 0.85 }) / base - 2 ** (0.85 / 12)) < 1e-9);
+  // A burst of particles asking for the same cue sounds once: a retrigger within 30 ms is refused.
+  ctx.currentTime += 1;
+  assert.equal(audio.play('drip'), true);
+  ctx.currentTime += 0.01;
+  assert.equal(audio.play('drip'), false);
   assert.deepEqual(ctx.errors, []);
   audio.dispose();
 });
