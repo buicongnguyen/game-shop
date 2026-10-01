@@ -13,7 +13,7 @@ const notes = state => state.morning.filter(note => note.kind !== 'gift');
 
 // A level-7 shop on day 10 (a quiet weekday) with both cooks hired and plenty of cash.
 function shop(day = 10) {
-  const state = g.createGame('Tiệm tình yêu'); state.day = day; state.xp = 3300; state.money = 5000000;
+  const state = g.createGame('Tiệm tình yêu'); state.day = day; state.xp = 3300; state.story.stage = 3; state.money = 5000000;
   assert.equal(g.hireStaff(state, 'chef').ok, true); assert.equal(g.hireStaff(state, 'broth').ok, true);
   return state;
 }

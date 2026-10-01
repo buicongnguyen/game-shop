@@ -33,7 +33,32 @@ const mapOf = (rows, value) => Object.fromEntries(rows.map(row => [row.id, typeo
 const emptyBowl = () => ({ started: false, broth: null, noodles: null, toppings: [], spice: 0, cost: 0 });
 const initialStats = () => ({ served: 0, customers: 0, revenue: 0, expenses: 0, lost: 0, mistakes: 0, waste: 0, tips: 0, perfect: 0, daysPlayed: 0, bestDay: 0, rewards: 0, borrowed: 0, repaid: 0 });
 const operating = state => state.activeDay && ['open', 'closing'].includes(state.phase);
-const capacity = state => state.upgrades.table ? 4 : 3;
+// ---- Startup chapters: the shop grows from a home kitchen selling online to a noodle chain. The chapter in play is
+// the stored stage capped by the level band, so a stage never runs ahead of the shop's level.
+export const CHAPTERS = Object.freeze([
+  { stage: 1, short: 'Bếp nhà', name: 'Chương 1 · Bếp nhà bán online', text: 'Bạn nấu mì ngay trong căn bếp nhỏ ở nhà, chưa có bàn ghế đón khách. Mọi tô mì đều đi qua ứng dụng giao hàng.', goal: 'Giao 30 đơn qua ứng dụng' },
+  { stage: 2, short: 'Xe mì đường phố', name: 'Chương 2 · Xe mì đường phố', text: 'Chiếc xe đẩy ra góc phố với hai cái ghế nhựa. Ngày mưa hay nắng gắt, khách qua đường ghé tạt vào đông hơn.', goal: 'Gom đủ 1.000.000₫ trong két' },
+  { stage: 3, short: 'Tiệm nhỏ', name: 'Chương 3 · Tiệm mì nhỏ', text: 'Bạn thuê được một mặt bằng nhỏ với ba bàn. Từ giờ mỗi tối phải trả tiền thuê, bù lại khách quen bắt đầu ghé thường xuyên.', goal: '30 đánh giá, trung bình 30 gần nhất từ 4,3★' },
+  { stage: 4, short: 'Tiệm hai tầng', name: 'Chương 4 · Tiệm hai tầng', text: 'Tiệm mở thêm tầng trên, bảng hiệu sáng cả con phố. Giờ là lúc tích vốn cho bước lớn tiếp theo.', goal: 'Gom đủ 5.000.000₫ trong két' },
+  { stage: 5, short: 'Chuỗi mì cay', name: 'Chương 5 · Chuỗi mì cay', text: 'Tên tiệm đã thành thương hiệu, nhiều chi nhánh mang cùng một nồi nước dùng. Hành trình khởi nghiệp đã trọn vẹn!', goal: null },
+]);
+export function stageBand(level) { return level >= 10 ? 5 : level >= 8 ? 4 : level >= 5 ? 3 : level >= 3 ? 2 : 1; }
+export function storyStage(state) { return Math.min(state.story?.stage ?? 5, stageBand(levelInfo(state).level)); }
+// Lifetime app orders: settled days plus today's.
+function appOrdersTotal(state) { return state.history.reduce((sum, day) => sum + (day.appOrders || 0), 0) + (state.activeDay?.appOrders || 0); }
+// The current chapter's goal as { label, value, target, done }; null in the last chapter.
+export function chapterGoal(state, stage = state.story?.stage ?? 5) {
+  const label = CHAPTERS[stage - 1]?.goal; if (!label) return null;
+  if (stage === 1) { const value = appOrdersTotal(state); return { label, value: Math.min(value, 30), target: 30, done: value >= 30 }; }
+  if (stage === 3) { const count = state.reviews.length; return { label, value: Math.min(count, 30), target: 30, average: state.reputation, done: count >= 30 && state.reputation >= 4.3 }; }
+  const target = stage === 2 ? 1000000 : 5000000; return { label, value: Math.min(target, Math.max(0, state.money)), target, done: state.money >= target };
+}
+export function chapterInfo(state) { const stage = storyStage(state); return { ...CHAPTERS[stage - 1], stage, goalProgress: chapterGoal(state, stage), nextBandReached: stage < 5 && stageBand(levelInfo(state).level) > stage }; }
+// Seats: none in the home kitchen, two at the cart, three in the shop, four with the extra table.
+export function capacity(state) { const stage = storyStage(state); return state.upgrades.table ? 4 : stage >= 3 ? 3 : stage === 2 ? 2 : 0; }
+// App orders: with the delivery app, or always in the home kitchen (which holds three at once).
+const appAllowed = state => !!state.upgrades.delivery || storyStage(state) === 1;
+const deliveryCap = state => storyStage(state) === 1 ? 3 : 2;
 const potCount = state => state.upgrades.pot3 ? 3 : state.upgrades.pot2 ? 2 : 1;
 function rng(random) { const n = Number(random()); if (!Number.isFinite(n)) throw Error('Invalid randomness'); return clamp(n, 0, .999999999); }
 function pick(random, values) { return values[Math.floor(rng(random) * values.length)]; }
@@ -51,7 +76,8 @@ export function wageFor(state, id, day = state.day) {
 }
 // Tonight's wage per member: someone fired mid-day is still paid the day's wage; an absent cook is not.
 function wageLinesFor(state) { return STAFF.map(member => { const amount = Math.max(state.staff[member.id] ? wageFor(state, member.id) : 0, state.activeDay?.wagesDue[member.id] || 0); return { id: member.id, name: member.name, amount, cut: amount < member.wage }; }).filter(line => line.amount > 0); }
-export function dailyOperatingCost(state) { const utilities = BASE_UTILITIES + UPGRADES.filter(item => state.upgrades[item.id]).reduce((sum, item) => sum + item.utilities, 0); const wages = wageLinesFor(state).reduce((sum, line) => sum + line.amount, 0); return { rent: BASE_RENT, utilities, wages, total: BASE_RENT + utilities + wages }; }
+// Rent starts with the first rented shop (chapter 3).
+export function dailyOperatingCost(state) { const utilities = BASE_UTILITIES + UPGRADES.filter(item => state.upgrades[item.id]).reduce((sum, item) => sum + item.utilities, 0); const wages = wageLinesFor(state).reduce((sum, line) => sum + line.amount, 0), rent = storyStage(state) >= 3 ? BASE_RENT : 0; return { rent, utilities, wages, total: rent + utilities + wages }; }
 function goalsFor(state) { const level = levelInfo(state).level, day = state.day; const choices = [
   { id: `day-${day}-served`, day, name: 'Tiệm đông vui', description: 'Phục vụ những tô mì nóng.', metric: 'served', target: 6 + 2 * level },
   { id: `day-${day}-perfect`, day, name: 'Khách thương mến', description: 'Nhận đánh giá 5 sao.', metric: 'perfect', target: 2 + Math.ceil(level / 2) },
@@ -59,13 +85,13 @@ function goalsFor(state) { const level = levelInfo(state).level, day = state.day
 ];
   if (level >= 3) choices.push({ id: `day-${day}-spicy`, day, name: 'Thử thách cay', description: 'Giao tô mì cay từ cấp 5.', metric: 'spicy', target: 1 + Math.floor(level / 3) });
   if (level >= 2) choices.push({ id: `day-${day}-maxCombo`, day, name: 'Ba lời khen liền nhau', description: 'Đạt chuỗi 3 khách 5 sao.', metric: 'maxCombo', target: 3 });
-  if (state.upgrades.delivery) choices.push({ id: `day-${day}-deliveries`, day, name: 'Mì đến tận nhà', description: 'Hoàn thành 2 đơn giao hàng.', metric: 'deliveries', target: 2 });
+  if (appAllowed(state)) choices.push({ id: `day-${day}-deliveries`, day, name: 'Mì đến tận nhà', description: 'Hoàn thành 2 đơn giao hàng.', metric: 'deliveries', target: 2 });
   choices.push({ id: `day-${day}-noLost`, day, name: 'Khách nào cũng vui', description: 'Phục vụ ít nhất một tô, không để khách bỏ đi.', metric: 'noLost', target: 1 });
   if (day > 1) { let seed = day * 314159 + level; for (let i = choices.length - 1; i > 0; i--) { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; const j = seed % (i + 1); [choices[i], choices[j]] = [choices[j], choices[i]]; } }
   return choices.slice(0, 3).map(goal => ({ ...goal, progress: 0, rewardMoney: (15 + 5 * level) * 1000, rewardXp: 25 + 5 * level, claimed: false }));
 }
 export function createGame(name = 'Tiệm Mì Cay', { tutorial = false } = {}) {
-  const state = { nextEvent: null, buzzNext: 0, pendingIncome: 0, insolvent: false, tutorialDone: !tutorial, pendingLevelUp: null, morning: [], lastNews: NEWS_VERSION, romance: null, staffAway: {}, wageCut: null, neighbours: emptyNeighbours(), version: 2, name: typeof name === 'string' && name.trim() ? name.trim().slice(0, 40) : 'Tiệm Mì Cay', day: 1, money: STARTING_CASH, xp: 0, reputation: 4, inventory: mapOf(INGREDIENTS, 0), batches: mapOf(INGREDIENTS, () => []), prices: mapOf(INGREDIENTS, item => item.sellPrice), unlocked: [...INITIAL_INGREDIENT_IDS], upgrades: mapOf(UPGRADES, false), staff: mapOf(STAFF, false), decoration: { owned: ['awning_red'], selected: { awning: 'awning_red', pet: null, plant: null, lamp: null } }, reviews: [], history: [], stats: initialStats(), settings: { sound: true, music: true, motion: true, theme: 'light' }, pendingExpenses: 0, debt: 0, loanInterest: 0, loanInstallment: 0, loansTaken: 0, phase: 'prep', activeDay: null, lastDay: null, nextOrderId: 1, goals: [], legacySave: null, sidequests: {}, receivables: [] };
+  const state = { nextEvent: null, buzzNext: 0, pendingIncome: 0, insolvent: false, tutorialDone: !tutorial, pendingLevelUp: null, morning: [], lastNews: NEWS_VERSION, romance: null, staffAway: {}, wageCut: null, neighbours: emptyNeighbours(), version: 2, name: typeof name === 'string' && name.trim() ? name.trim().slice(0, 40) : 'Tiệm Mì Cay', day: 1, money: STARTING_CASH, xp: 0, reputation: 4, inventory: mapOf(INGREDIENTS, 0), batches: mapOf(INGREDIENTS, () => []), prices: mapOf(INGREDIENTS, item => item.sellPrice), unlocked: [...INITIAL_INGREDIENT_IDS], upgrades: mapOf(UPGRADES, false), staff: mapOf(STAFF, false), decoration: { owned: ['awning_red'], selected: { awning: 'awning_red', pet: null, plant: null, lamp: null } }, reviews: [], history: [], stats: initialStats(), settings: { sound: true, music: true, motion: true, theme: 'light' }, pendingExpenses: 0, debt: 0, loanInterest: 0, loanInstallment: 0, loansTaken: 0, phase: 'prep', activeDay: null, lastDay: null, nextOrderId: 1, goals: [], legacySave: null, sidequests: {}, receivables: [], story: { stage: 1, seen: 1 } };
   state.goals = goalsFor(state); lockEvent(state); return state;
 }
 function spend(state, amount) { const current = state.activeDay ? state.activeDay.expenses : state.pendingExpenses; if (!int(amount, 1e12) || !cash(state.money - amount) || !int(state.stats.expenses + amount, 1e12) || !int(current + amount, 1e12)) return false; state.money -= amount; state.stats.expenses += amount; if (state.activeDay) state.activeDay.expenses += amount; else state.pendingExpenses += amount; return true; }
@@ -73,10 +99,10 @@ function spend(state, amount) { const current = state.activeDay ? state.activeDa
 // rain counts twice, and the spicy challenge joins twice from stage two (level 3).
 const NORMAL_EVENT = Object.freeze({ id: 'normal', name: 'Ngày bình yên', description: 'Một ngày bán hàng mới.', traffic: 1, patience: 1, costMultiplier: 1 });
 const EVENT_IDS = ['normal', ...DAILY_EVENTS.map(event => event.id)];
-function eventFor(day, level, unlocked = INITIAL_INGREDIENT_IDS) {
+function eventFor(day, level, unlocked = INITIAL_INGREDIENT_IDS, stage = stageBand(level)) {
   if (day % 7 === 0 || day % 7 === 6) return { ...DAILY_EVENTS.find(event => event.id === 'weekend') };
   if (day <= 2 || ((Math.imul(day, 1103515245) + 12345) >>> 0) / 4294967296 >= .35) return { ...NORMAL_EVENT };
-  const random = seeded(Math.imul(day, 2654435761) + 97), pool = ['rain', 'rain', 'hot', 'students', 'reviewer', 'sale', 'cold', 'payday', 'festival', ...(level >= 3 ? ['challenge', 'challenge'] : [])];
+  const random = seeded(Math.imul(day, 2654435761) + 97), pool = ['rain', 'rain', 'hot', ...(stage >= 2 ? ['students'] : []), 'reviewer', 'sale', 'cold', 'payday', 'festival', ...(level >= 3 ? ['challenge', 'challenge'] : [])];
   const picked = pool[Math.floor(random() * pool.length)], event = { ...DAILY_EVENTS.find(row => row.id === picked) };
   if (event.id === 'sale') { const choices = unlocked.filter(id => ['broth', 'topping'].includes(items.get(id)?.kind)); event.discountedIngredient = choices[Math.floor(random() * choices.length)] || 'kimchi'; }
   return event;
@@ -84,8 +110,8 @@ function eventFor(day, level, unlocked = INITIAL_INGREDIENT_IDS) {
 // A day's event is fixed when the previous day is settled, so what the morning preview promises is what the day
 // brings, even after unlocking an ingredient or levelling up before opening. A stale entry is simply ignored.
 function eventById(id, item) { const event = id === 'normal' ? { ...NORMAL_EVENT } : { ...DAILY_EVENTS.find(row => row.id === id) }; if (item) event.discountedIngredient = item; return event; }
-function lockEvent(state) { if (state.nextEvent?.day === state.day) return; const event = eventFor(state.day, levelInfo(state).level, state.unlocked); state.nextEvent = { day: state.day, id: event.id, item: event.discountedIngredient ?? null }; }
-export function dayEvent(state) { if (state.activeDay) return state.activeDay.event; return state.nextEvent?.day === state.day ? eventById(state.nextEvent.id, state.nextEvent.item) : eventFor(state.day, levelInfo(state).level, state.unlocked); }
+function lockEvent(state) { if (state.nextEvent?.day === state.day) return; const event = eventFor(state.day, levelInfo(state).level, state.unlocked, storyStage(state)); state.nextEvent = { day: state.day, id: event.id, item: event.discountedIngredient ?? null }; }
+export function dayEvent(state) { if (state.activeDay) return state.activeDay.event; return state.nextEvent?.day === state.day ? eventById(state.nextEvent.id, state.nextEvent.item) : eventFor(state.day, levelInfo(state).level, state.unlocked, storyStage(state)); }
 function wasteReserve(state) { return INGREDIENTS.reduce((sum, item) => sum + state.batches[item.id].reduce((value, batch) => value + batch.qty * batch.cost, 0), 0) + (state.activeDay ? state.activeDay.bowl.cost + state.activeDay.pots.reduce((sum, pot) => sum + (pot?.cost || 0), 0) + state.activeDay.readyNoodles.reduce((sum, ready) => sum + ready.cost, 0) : 0); }
 function unitCost(state, item, rush = false) { const event = dayEvent(state), base = Math.round(item.price * (event.id === 'sale' && event.discountedIngredient === item.id ? .7 : 1) * (1 - marketDiscount(state)) / 10) * 10; return rush ? Math.round(base * 1.5 / 100) * 100 : base; }
 function cartQuote(state, cart, rush = false) {
@@ -95,25 +121,27 @@ function cartQuote(state, cart, rush = false) {
   return { total, rows };
 }
 export function cartCost(state, cart, options = {}) { return cartQuote(state, cart, options.rush)?.total ?? NaN; }
-// Expected visitors: the arrival rate integrated over the spawn window. The first guest comes at 10 s
-// and new guests stop 8 s before closing. Students and the reviewer are scheduled extras.
+// Expected visitors, estimated as the reference does: a whole day at the flat arrival rate (no time-of-day shape),
+// less 5% for the quiet moments at opening and closing.
 export function forecastCustomers(state) {
   const day = { elapsed: 0, event: dayEvent(state), buzz: state.activeDay?.buzz ?? 0 };
-  let expected = day.event.id === 'students' ? 3 : day.event.id === 'reviewer' ? 1 : 0;
-  for (let second = 10; second < DAY_DURATION - 8; second++) { day.elapsed = second + .5; expected += traffic(state, true, day) / 10; }
-  return Math.max(1, Math.floor(expected));
+  return Math.max(1, Math.round(DAY_DURATION * traffic(state, false, day) / 10 * .95));
 }
 // Stock for the forecast: noodles for every guest, spare bowls, broths split 40% to the first and the rest
-// evenly, toppings scaled by customer stage. Round up to fives, then trim fives until tonight's overhead is covered.
+// evenly, toppings scaled by customer stage. Each target also replaces what expires tonight and rounds up to fives
+// (at most 99, the cart's limit); then fives come off the costliest line (quantity × price) until tonight's rent,
+// utilities and wages are still covered.
 export function suggestedCart(state) {
   const level = levelInfo(state).level, stage = level < 3 ? 0 : level < 7 ? 1 : 2, base = Math.ceil(forecastCustomers(state) * (stage === 2 ? 1.6 : 1)) + 2;
   const unlocked = availableIngredients(state), broths = unlocked.filter(item => item.kind === 'broth'), toppings = unlocked.filter(item => item.kind === 'topping');
   const want = { bowls: base + 3, noodles: base };
   broths.forEach((item, index) => { want[item.id] = broths.length === 1 ? base : index === 0 ? base * .4 : base * .6 / (broths.length - 1); });
   for (const item of toppings) want[item.id] = base * [.85, 1.25, 1.4][stage] / toppings.length;
-  const cart = {}; for (const [id, target] of Object.entries(want)) cart[id] = Math.min(95, Math.max(0, Math.ceil((target - inventoryCount(state, id)) / 5) * 5));
+  const expiring = id => state.batches[id].filter(batch => batch.expiresDay !== null && batch.expiresDay <= state.day).reduce((sum, batch) => sum + batch.qty, 0);
+  const cart = {}; for (const [id, target] of Object.entries(want)) cart[id] = Math.min(99, Math.max(0, Math.ceil((target - inventoryCount(state, id) + (id === 'bowls' ? 0 : expiring(id))) / 5) * 5));
   const missingBroth = !broths.some(item => inventoryCount(state, item.id)), floor = id => (['bowls', 'noodles'].includes(id) || missingBroth && id === broths[0]?.id) && !inventoryCount(state, id) ? 5 : 0;
-  while (cartCost(state, cart) > Math.max(0, state.money - dailyOperatingCost(state).total)) { const id = Object.keys(cart).filter(key => cart[key] > floor(key)).sort((a, b) => cart[b] - cart[a])[0]; if (!id) break; cart[id] = Math.max(floor(id), cart[id] - 5); }
+  const lineCost = id => cart[id] * unitCost(state, items.get(id));
+  while (cartCost(state, cart) > Math.max(0, state.money - dailyOperatingCost(state).total)) { const id = Object.keys(cart).filter(key => cart[key] > floor(key)).sort((a, b) => lineCost(b) - lineCost(a))[0]; if (!id) break; cart[id] = Math.max(floor(id), cart[id] - 5); }
   return cart;
 }
 export function buyCart(state, cart, { rush = false } = {}) {
@@ -144,7 +172,7 @@ export function hireStaff(state, id) { const result = purchaseAsset(state, STAFF
 export function fireStaff(state, id) { if (!STAFF.some(member => member.id === id) || !state.staff[id]) return fail('Nhân viên chưa làm tại tiệm.'); state.staff[id] = false; return good('Đã kết thúc ca làm.'); }
 export function buyDecoration(state, id) { const item = DECORATIONS.find(row => row.id === id); if (!item || state.decoration.owned.includes(id)) return fail('Trang trí không hợp lệ hoặc đã sở hữu.'); if (levelInfo(state).level < item.unlockLevel || state.money < item.price) return fail('Chưa đủ cấp hoặc tiền.'); if (item.price > 0 && state.money - item.price < openingReserve(state)) return fail(reserveMessage(openingReserve(state))); if (!spend(state, item.price)) return fail('Đã đạt giới hạn tiền.'); state.decoration.owned.push(id); state.decoration.selected[item.type] = id; return good('Tiệm xinh hơn rồi!', { cost: item.price }); }
 export function selectDecoration(state, id) { const item = DECORATIONS.find(row => row.id === id); if (!item || !state.decoration.owned.includes(id)) return fail('Bạn chưa sở hữu trang trí này.'); state.decoration.selected[item.type] = id; return good('Đã đổi trang trí.'); }
-function newDay(state) { return { day: state.day, duration: DAY_DURATION, remaining: DAY_DURATION, closingRemaining: CLOSING_GRACE, elapsed: 0, spawnElapsed: 0, nextArrival: 10, appSpawnElapsed: 0, nextAppArrival: 22, studentsSpawned: false, reviewerSpawned: false, chefCooldown: 0, goalRewards: 0, pendingIncident: null, incidentCount: 0, lastIncidentAt: -30, buzz: state.buzzNext || 0, slowUntil: 0, orders: [], pots: Array(potCount(state)).fill(null), readyNoodles: [], bowl: emptyBowl(), selectedOrderId: null, served: 0, revenue: state.pendingIncome || 0, expenses: state.pendingExpenses, lost: 0, customers: 0, mistakes: 0, waste: 0, tips: 0, perfect: 0, ideal: 0, spicy: 0, deliveries: 0, noLost: 0, dineInServed: 0, combo: 0, maxCombo: 0, buyerTrips: 0, buyerRuns: {}, seq: 0, storyTimes: [], storiesSeen: [], dirty: null, inspected: false, noisyId: null, tutorial: false, xpGained: 0, priceLost: 0, recent: [], farOrders: 0, planetAt: null, prankQueue: [], wagesDue:
+function newDay(state) { return { day: state.day, duration: DAY_DURATION, remaining: DAY_DURATION, closingRemaining: CLOSING_GRACE, elapsed: 0, spawnElapsed: 0, nextArrival: 1, appSpawnElapsed: 0, nextAppArrival: 10, studentsSpawned: false, reviewerSpawned: false, reviewerPending: false, appOrders: 0, soldOutWalks: 0, firstOrderId: state.nextOrderId, chefCooldown: 0, goalRewards: 0, pendingIncident: null, incidentCount: 0, lastIncidentAt: -30, buzz: state.buzzNext || 0, slowUntil: 0, orders: [], pots: Array(potCount(state)).fill(null), readyNoodles: [], bowl: emptyBowl(), selectedOrderId: null, served: 0, revenue: state.pendingIncome || 0, expenses: state.pendingExpenses, lost: 0, customers: 0, mistakes: 0, waste: 0, tips: 0, perfect: 0, ideal: 0, spicy: 0, deliveries: 0, noLost: 0, dineInServed: 0, combo: 0, maxCombo: 0, buyerTrips: 0, buyerRuns: {}, seq: 0, storyTimes: [], storiesSeen: [], dirty: null, inspected: false, noisyId: null, tutorial: false, xpGained: 0, priceLost: 0, recent: [], farOrders: 0, planetAt: null, prankQueue: [], wagesDue:
  mapOf(STAFF, member => wageFor(state, member.id)), event: dayEvent(state), goals: state.goals }; }
 // Story windows (fractions of the day) as in the reference: each is kept with 40% odds on day 2, 60% later.
 const STORY_WINDOWS = [[.12, .3], [.38, .58], [.64, .84]];
@@ -230,21 +258,21 @@ function pickFresh(state, random, rows) {
   const recent = state.activeDay.recent.flat(), weights = rows.map(row => 1 / (1 + 1.5 * recent.filter(id => id === row.id).length)), total = weights.reduce((sum, weight) => sum + weight, 0);
   let value = rng(random) * total; for (let i = 0; i < rows.length; i++) { value -= weights[i]; if (value < 0) return i; } return rows.length - 1;
 }
-function makeDish(state, random) { const level = levelInfo(state).level, broths = availableIngredients(state).filter(item => item.kind === 'broth'), broth = broths[pickFresh(state, random, broths)].id, choices = availableIngredients(state).filter(item => item.kind === 'topping'), count = weighted(random, level < 3 ? [.15, .85] : level < 7 ? [.15, .5, .35] : [.1, .35, .35, .2]), toppings = []; while (toppings.length < count && choices.length) toppings.push(choices.splice(pickFresh(state, random, choices), 1)[0].id); let spice = weighted(random, level < 3 ? [.2, .3, .3, .2] : [.07, .12, .17, .18, .15, .12, .1, .09]); if (state.activeDay.event.id === 'hot') spice = Math.min(spice, Math.floor(rng(random) * 3)); if (state.activeDay.event.id === 'challenge' && rng(random) < .45) spice = 7; if (state.activeDay.event.id === 'cold' && rng(random) < .6) spice = Math.max(spice, level < 3 ? 2 + Math.floor(rng(random) * 2) : 4 + Math.floor(rng(random) * 4)); return { broth, toppings, spice, price: priceFor(state, broth, toppings) }; }
+function makeDish(state, random) { const level = levelInfo(state).level, broths = availableIngredients(state).filter(item => item.kind === 'broth'), broth = broths[pickFresh(state, random, broths)].id, choices = availableIngredients(state).filter(item => item.kind === 'topping'), count = weighted(random, level < 3 ? [.15, .85] : level < 7 ? [.15, .5, .35] : [.1, .35, .35, .2]), toppings = []; while (toppings.length < count && choices.length) toppings.push(choices.splice(pickFresh(state, random, choices), 1)[0].id); let spice = weighted(random, level < 3 ? [.2, .3, .3, .2] : [.07, .12, .17, .18, .15, .12, .1, .09]); if (state.activeDay.event.id === 'hot') spice = Math.min(spice, Math.floor(rng(random) * 3)); if (state.activeDay.event.id === 'challenge' && rng(random) < .45) spice = 7; if (state.activeDay.event.id === 'cold' && rng(random) < .6) spice = Math.max(spice, storyStage(state) < 2 ? 2 + Math.floor(rng(random) * 2) : 4 + weighted(random, [.3, .3, .2, .2])); return { broth, toppings, spice, price: priceFor(state, broth, toppings) }; }
 const TOURIST_NAMES = ['Emma', 'Lucas', 'Mia', 'Noah', 'Sofia', 'Kenji', 'Mei', 'Hans', 'Chloé', 'Oliver'];
 export const TRAITS = Object.freeze(['hurried', 'fickle', 'haggler']);
 const PERSONA_IDS = [...PERSONAS.map(row => row.id), 'tourist', 'astronaut'];
 const LATER_ITEMS = ['spaceport'];
 
-// A guest who wants something the shop has run out of switches to another stocked item half the time;
-// otherwise they walk on. Returns the missing ingredient id, or null when every dish can be made.
+// A guest who wants something the shop has run out of switches to another stocked item half the time (picked like
+// any order, favouring what recent guests did not have); otherwise they walk on. Returns the missing ingredient id, or null when every dish can be made.
 function checkArrivalStock(state, dishes, random) {
   for (const dish of dishes) for (const id of [dish.broth, ...dish.toppings]) {
     if (inventoryCount(state, id)) continue;
     const kind = items.get(id).kind, taken = kind === 'broth' ? [dish.broth] : dish.toppings;
     const options = availableIngredients(state).filter(item => item.kind === kind && inventoryCount(state, item.id) && !taken.includes(item.id));
     if (!options.length || rng(random) >= .5) return id;
-    const swap = options[Math.floor(rng(random) * options.length)].id;
+    const swap = options[pickFresh(state, random, options)].id;
     if (kind === 'broth') dish.broth = swap; else dish.toppings = dish.toppings.map(item => item === id ? swap : item);
     dish.price = priceFor(state, dish.broth, dish.toppings);
   }
@@ -264,7 +292,7 @@ function priceNotice(state, text) { const day = state.activeDay, last = priceNot
 // Students, the reviewer and invited tourists do not check prices. App orders skip silently.
 // `trait` seats a guest with that trait (a neighbour's haggler): no trait roll, and like invited guests no price check.
 function createOrderFor(state, random, delivery = false, { tourist = false, planet = null, trait: forcedTrait = null, bypassPrice = tourist || !!planet || !!forcedTrait, noTrait = false } = {}) {
-  const day = state.activeDay; if (state.phase !== 'open' || !day || day.remaining <= (delivery ? 10 : 8)) return fail('Tiệm đã ngừng nhận khách mới.'); if (planet && (!state.upgrades.spaceport || !planetById(planet)) || delivery && !planet && !state.upgrades.delivery || day.orders.filter(order => order.delivery === delivery).length >= (delivery ? 2 : capacity(state))) return fail(delivery ? 'Đã đủ hai đơn giao hàng.' : 'Các bàn đã đầy.'); if (state.nextOrderId >= 999999999 || state.stats.customers >= 1e9 || day.customers >= 1e9 || state.stats.lost + day.orders.length >= 1e9) return fail('Đã đạt giới hạn đơn hàng.');
+  const day = state.activeDay; if (state.phase !== 'open' || !day || day.remaining <= (delivery ? 10 : 8)) return fail('Tiệm đã ngừng nhận khách mới.'); if (planet && (!state.upgrades.spaceport || !planetById(planet)) || delivery && !planet && !appAllowed(state) || day.orders.filter(order => order.delivery === delivery).length >= (delivery ? deliveryCap(state) : capacity(state))) return fail(delivery ? 'Hàng đợi giao hàng đã đầy.' : capacity(state) ? 'Các bàn đã đầy.' : 'Bếp nhà chưa có bàn cho khách ngồi.'); if (state.nextOrderId >= 999999999 || state.stats.customers >= 1e9 || day.customers >= 1e9 || state.stats.lost + day.orders.length >= 1e9) return fail('Đã đạt giới hạn đơn hàng.');
   if (!delivery && !bypassPrice) {
     const severe = availableIngredients(state).filter(item => item.kind !== 'base' && severePrice(state, item.id));
     if (severe.length) {
@@ -295,9 +323,10 @@ function createOrderFor(state, random, delivery = false, { tourist = false, plan
   } catch { return fail('Không thể tạo đơn hàng.'); }
   if (soldOut) {
     if (delivery) return fail('Đơn giao hàng cần món đã hết.');
-    day.customers++; state.stats.customers++; day.lost++; state.stats.lost++;
+    // A guest who walks on at the door counts as lost, not as a customer.
+    day.lost++; state.stats.lost++; day.soldOutWalks++;
     if (walkRoll < .35) addReview(state, { id: `day-${state.day}-order-${state.nextOrderId++}`, name, reviewer: false }, walkStars, 'stockout', { self });
-    notify(`${name} muốn ăn ${items.get(soldOut).shortName} nhưng tiệm đã hết, đành đi quán khác.`, 'bad', 'customerLeave');
+    notify(`${name} muốn ăn ${items.get(soldOut).shortName} nhưng tiệm đã hết, đành đi quán khác.`, 'bad', 'customerLeave', { kind: 'soldOutWalk', item: soldOut });
     return { ok: false, message: `Hết ${items.get(soldOut).shortName}.`, walkedAway: true };
   }
   if (refused) {
@@ -350,6 +379,7 @@ export function acknowledgeLevelUp(state) { state.pendingLevelUp = null; return 
 export function unlocksAt(level) { const at = rows => rows.filter(item => item.unlockLevel === level); return { ingredients: at(INGREDIENTS), upgrades: at(UPGRADES), staff: at(STAFF), decorations: at(DECORATIONS) }; }
 // Reviews name their cause; the voice module writes the words. Each review's text is seeded by its id, so the
 // game's random stream is untouched, and recent texts are avoided so the list does not repeat itself.
+export const REVIEW_CAP = 400, HISTORY_CAP = 120;
 const REVIEW_LINES = { great: 'Mì nóng ngon, đúng món. Sẽ quay lại!', meh: 'Mì cần chỉn chu hơn về độ chín và thời gian chờ.' };
 function reviewText(state, id, cause, stars, detail = {}) {
   try { const text = composeReview({ cause, stars, ...detail, random: seeded(hashText(`${id}|${cause}|${stars}`)), recent: state.reviews.slice(-12).map(review => review.text) }); if (typeof text === 'string' && text.trim() && text.length <= 1000) return text.trim(); } catch {}
@@ -360,7 +390,7 @@ function refreshReputation(state) { const recent = state.reviews.slice(-30); sta
 function addReview(state, order, rating, cause, detail = {}, copies = order.reviewer ? 3 : 1, first = 0) {
   let review = null;
   for (let copy = first; copy < first + copies; copy++) { const id = copy ? `${order.id}-${copy + 1}` : order.id; review = { id, day: state.day, name: order.name, rating, stars0: rating, cause, text: reviewText(state, id, cause, rating, detail), thread: [], xp: false }; state.reviews.push(review); }
-  state.reviews = state.reviews.slice(-100); refreshReputation(state); return review;
+  state.reviews = state.reviews.slice(-REVIEW_CAP); refreshReputation(state); return review;
 }
 function addStoryReview(state, stars, cause, name) { addReview(state, { id: `day-${state.day}-order-${state.nextOrderId++}`, name: name || 'Khách qua đường', reviewer: false }, stars, cause); }
 // Revisions after an incident: a good outcome can only raise a review, a bad one only lower it.
@@ -420,11 +450,11 @@ function queueIncident(state, order, tip, random) {
   return incident;
 }
 // A haggling guest asks for max(5,000, 15% of the bill) off after eating. It is not capped; within 12 s of
-// another situation the owner simply agrees.
+// another situation the owner simply agrees: the discount is paid and nothing else changes.
 function queueHaggle(state, order, tip, random) {
   const day = state.activeDay; if (day.pendingIncident) return null;
   const bill = order.dishes.reduce((sum, dish) => sum + dish.price, 0) + tip, cut = Math.max(5000, Math.round(bill * .15 / 1000) * 1000);
-  if (day.elapsed - day.lastIncidentAt < 12) { if (spend(state, cut)) { reviseRating(state, order.id, 5); day.buzz = clamp(day.buzz + .05, -.3, .6); notify(`${order.name} xin bớt ${formatMoney(cut)}, bạn vui vẻ chiều khách.`); } return null; }
+  if (day.elapsed - day.lastIncidentAt < 12) { if (spend(state, cut)) notify(`${order.name} xin bớt ${formatMoney(cut)}, bạn bận tay nên gật đầu luôn.`, 'neutral', null, { kind: 'haggleQuick', name: order.name, cut }); return null; }
   let roll; try { roll = rng(random); } catch { roll = .5; }
   const incident = { id: nextSituationId(state), type: 'haggle', name: order.name, reviewId: order.id, cut, bill, roll };
   incident.options = incidentOptions(incident); day.pendingIncident = incident; day.lastIncidentAt = day.elapsed;
@@ -675,9 +705,12 @@ export function serveBowl(state, random = Math.random) {
   let roll; try { roll = rng(random); } catch { return fail('Không thể tính lượt phục vụ.'); }
   const matchIndex = order.dishes.findIndex((dish, index) => index >= order.bowlsServed && matches(dish)), dish = order.dishes[matchIndex], quality = bowl.noodles === 'cooked' ? 0 : 1, final = order.bowlsServed + 1 === order.bowlsTotal, tolerance = state.upgrades.menu ? 1.2 : 1;
   const expensive = order.dishes.some(part => [part.broth, ...part.toppings].some(id => tooExpensive(state, id)));
-  const priceRatio = order.dishes.reduce((sum, part) => sum + part.price, 0) / order.dishes.reduce((sum, part) => sum + items.get(part.broth).sellPrice + part.toppings.reduce((total, id) => total + items.get(id).sellPrice, 0), 0), used = 1 - order.patience / order.maxPatience;
-  let rating = clamp(5 - (used > .5 ? 1 : 0) - (used > .82 ? 1 : 0) - (quality || order.qualityPenalty > 0 ? 1 : 0) - (expensive ? 1 : 0) - Math.min(2, order.mistakes) - (roll < .1 ? 1 : 0), 1, 5); if (!expensive && priceRatio < .88) rating = Math.min(5, rating + 1);
-  const secret = secretBroth(state), secretBowls = secret ? order.dishes.filter(part => part.broth === secret).length : 0; if (secretBowls) rating = Math.min(5, rating + 1);
+  // The cheap ratio is the mean of each bowl's price over its suggested price.
+  const priceRatio = order.dishes.reduce((sum, part) => sum + part.price / (items.get(part.broth).sellPrice + part.toppings.reduce((total, id) => total + items.get(id).sellPrice, 0)), 0) / order.dishes.length, used = 1 - order.patience / order.maxPatience;
+  const secret = secretBroth(state), secretBowls = secret ? order.dishes.filter(part => part.broth === secret).length : 0;
+  // The cheap and secret-broth stars go onto the raw score (each only while it is under 5), then it is clamped to 1–5.
+  let rating = 5 - (used > .5 ? 1 : 0) - (used > .82 ? 1 : 0) - (quality || order.qualityPenalty > 0 ? 1 : 0) - (expensive ? 1 : 0) - Math.min(2, order.mistakes) - (roll < .1 ? 1 : 0);
+  if (!expensive && priceRatio < .88 && rating < 5) rating++; if (secretBowls && rating < 5) rating++; rating = clamp(rating, 1, 5);
   let tip = !final || order.delivery ? 0 : Math.round(order.patience / order.maxPatience * 4) * 1000 * order.bowlsTotal;
   if (day.event.id === 'challenge' && order.dishes.some(part => part.spice === 7)) tip *= 2;
   if (order.tourist) tip *= 2;
@@ -688,7 +721,7 @@ export function serveBowl(state, random = Math.random) {
   if (day.event.id === 'payday') tip *= 2;
   const fee = order.delivery && !order.planet ? Math.round(dish.price * .2) : 0, earned = dish.price - fee + tip;
   if (!cash(state.money + earned) || !int(state.stats.revenue + earned, 1e12) || !int(day.revenue + earned, 1e12) || !int(state.stats.tips + tip, 1e12) || state.stats.served >= 1e9) return fail('Đã đạt giới hạn bản lưu.');
-  state.money += earned; gainXp(state, 10); day.served++; if (!order.delivery) day.dineInServed++; if (dish.spice >= 5) day.spicy++; if (final && order.delivery) day.deliveries++; state.stats.served++; day.revenue += earned; state.stats.revenue += earned; day.tips += tip; state.stats.tips += tip; if (bowl.noodles === 'cooked') day.ideal++;
+  state.money += earned; gainXp(state, 10); day.served++; if (!order.delivery) day.dineInServed++; if (dish.spice >= 5) day.spicy++; if (final && order.delivery) day.deliveries++; if (final && order.delivery && !order.planet) day.appOrders++; state.stats.served++; day.revenue += earned; state.stats.revenue += earned; day.tips += tip; state.stats.tips += tip; if (bowl.noodles === 'cooked') day.ideal++;
   if (final) { if (rating === 5) { day.combo++; day.maxCombo = Math.max(day.maxCombo, day.combo); } else day.combo = 0; }
   [order.dishes[order.bowlsServed], order.dishes[matchIndex]] = [order.dishes[matchIndex], order.dishes[order.bowlsServed]];
   order.qualityPenalty += quality; order.bowlsServed++; let review = null, trip = null;
@@ -716,7 +749,8 @@ export function claimGoal(state, id) {
   goal.claimed = true; state.money += goal.rewardMoney; state.stats.rewards += goal.rewardMoney; gainXp(state, goal.rewardXp); if (state.activeDay) state.activeDay.goalRewards = (state.activeDay.goalRewards || 0) + goal.rewardMoney;
   return good(`Hoàn thành mục tiêu! +${formatMoney(goal.rewardMoney)}`, { rewardMoney: goal.rewardMoney, rewardXp: goal.rewardXp });
 }
-function minimumRestock(state) { const broth = availableIngredients(state).filter(item => item.kind === 'broth').sort((a, b) => a.price - b.price)[0]; return ['bowls', 'noodles', broth.id].reduce((sum, id) => sum + (inventoryCount(state, id) ? 0 : items.get(id).price * 5), 0); }
+// The cheapest restock that lets the shop open: the same rule as the reserve a purchase must leave (today's prices).
+function minimumRestock(state) { return openingReserve(state); }
 export function takeLoan(state) {
   if (state.loansTaken >= 2) return fail('Đã dùng hai khoản vay. Bạn có thể xuất bản lưu và mở tiệm mới.');
   const principal = Math.min(1000000, Math.max(state.loansTaken ? 400000 : 300000, Math.ceil((minimumRestock(state) + 150000 - state.money) / 50000) * 50000));
@@ -762,7 +796,7 @@ export function mopFloor(state) {
   day.dirty.taps++; if (day.dirty.taps < 3) return good(`Lau thêm ${3 - day.dirty.taps} lần nữa.`, { taps: day.dirty.taps });
   day.dirty = null; return good('Sàn quán sạch bóng trở lại!', { tone: 'good', clean: true });
 }
-// Cash has run dry: while insolvent the shop cannot open until a loan or a new shop.
+// Cash has run dry (below the cheapest restock, or below zero): the shop cannot open until a loan or a new shop.
 export function solvency(state) { const needed = minimumRestock(state); return { insolvent: state.money < needed, needed, loansLeft: 2 - state.loansTaken }; }
 // A fresh start keeps the shop name and settings; the tutorial is not repeated.
 export function newShopFrom(state) { const next = createGame(state.name); next.settings = { ...state.settings }; return next; }
@@ -772,7 +806,8 @@ function traffic(state, includeTime = true, day = state.activeDay) {
   for (const upgrade of UPGRADES) if (state.upgrades[upgrade.id]) bonus += (upgrade.trafficBonus || 0) + (day.elapsed > DAY_DURATION * .55 ? upgrade.eveningTrafficBonus || 0 : 0);
   const broths = availableIngredients(state).filter(item => item.kind === 'broth'), ratio = clamp(broths.reduce((sum, item) => sum + state.prices[item.id] / item.sellPrice, 0) / broths.length / (state.upgrades.menu ? 1.2 : 1), .85, 1.6);
   const fraction = day.elapsed / DAY_DURATION, time = fraction < .08 ? .8 : fraction < .28 ? 1.45 : fraction < .5 ? .6 : fraction < .78 ? 1.4 : .8;
-  return Math.max(.1, rep * (1 + bonus) * Math.min(1, .65 + state.day * .1) * day.event.traffic * clamp(1 + day.buzz, .7, 1.6) * (day.dirty ? .75 : 1) / ratio ** 2 * (includeTime ? time : 1));
+  const weather = storyStage(state) === 2 && ['rain', 'hot'].includes(day.event.id) ? 1.15 : 1;
+  return Math.max(.1, rep * (1 + bonus) * Math.min(1, .65 + state.day * .1) * day.event.traffic * weather * clamp(1 + day.buzz, .7, 1.6) * (day.dirty ? .75 : 1) / ratio ** 2 * (includeTime ? time : 1));
 }
 // The chef keeps up to min(3, bowls still owed) portions cooking or ready, and collects only its own pots.
 function chefWork(state, dt) {
@@ -799,7 +834,7 @@ function buyerWork(state, dt) {
 function automation(state, dt) { chefWork(state, dt); automateBowl(state); buyerWork(state, dt); }
 function tickPots(state, dt) {
   const day = state.activeDay;
-  for (let i = 0; i < day.pots.length; i++) { const pot = day.pots[i]; if (!pot) continue; pot.elapsed += dt * (day.elapsed < day.slowUntil ? .65 : 1); if (pot.elapsed + 1e-9 >= pot.duration) { waste(state, pot.cost); day.pots[i] = null; notify(`Mì ở nồi ${i + 1} luộc quá lâu, nhũn hết phải bỏ.`, 'bad', 'potBurn', { kind: 'potBurn', pot: i }); } }
+  for (let i = 0; i < day.pots.length; i++) { const pot = day.pots[i]; if (!pot) continue; pot.elapsed += dt / (day.elapsed < day.slowUntil ? 1.6 : 1); if (pot.elapsed + 1e-9 >= pot.duration) { waste(state, pot.cost); day.pots[i] = null; notify(`Mì ở nồi ${i + 1} luộc quá lâu, nhũn hết phải bỏ.`, 'bad', 'potBurn', { kind: 'potBurn', pot: i }); } }
 }
 // A fickle guest changes their spice level once, the first time patience drops below 70%.
 function changeSpice(state, order, random) {
@@ -807,8 +842,12 @@ function changeSpice(state, order, random) {
   order.spice = Math.min(top, spice); order.dishes[order.bowlsServed].spice = order.spice;
   notify(`${order.name} đổi ý: giờ muốn cay cấp ${order.spice}!`, 'neutral', null, { kind: 'fickle', orderId: order.id });
 }
+const WINDFALLS = [[50000, 80000, 100000], [50000, 100000], [20000, 30000, 40000]];
+// The day's average stars over every review written during this run of the day (reviewer copies included).
+const orderNumber = id => Number(String(id).split('-order-')[1]?.split('-')[0]);
+function dayStars(state, day) { const rows = state.reviews.filter(review => review.day === state.day && orderNumber(review.id) >= day.firstOrderId); return rows.length ? Math.round(rows.reduce((sum, review) => sum + review.rating, 0) / rows.length * 100) / 100 : null; }
 function bookMorning(state, amount) { if (!int(amount, 1e12) || !cash(state.money + amount) || !int(state.stats.revenue + amount, 1e12) || !int(state.pendingIncome + amount, 1e12)) return false; state.money += amount; state.stats.revenue += amount; state.pendingIncome += amount; return true; }
-export function dismissMorning(state) { state.morning = []; return good(''); }
+export function dismissMorning(state) { state.morning = []; if (state.story) state.story.seen = state.story.stage; return good(''); }
 function settle(state) {
   const day = state.activeDay;
   if (!day) return state.lastDay ? good('Ngày đã tổng kết.', { alreadyFinished: true, summary: state.lastDay }) : fail('Chưa có ngày để tổng kết.');
@@ -833,19 +872,26 @@ function settle(state) {
     else morning.push({ kind: 'debtLost', name: receivable.name, amount: receivable.amount });
   }
   state.receivables = state.receivables.filter(receivable => receivable.dueDay > state.day + 1);
-  // From day 3, a solvent night has a 12% chance of a small windfall (a neighbour's thanks, a lucky ticket...).
+  // A night that leaves the till below zero does not end the day: the same day number opens again once cash is back
+  // (a loan or a new shop), with no new event or windfall rolled for it.
+  const advance = state.money >= 0;
+  // From the night after day 2, a solvent night has a 12% chance of a small windfall in one of a few fixed amounts.
   const luck = seeded(Math.imul(state.day, 104729) + state.stats.served * 7 + state.stats.customers);
-  if (state.day >= 3 && state.money >= 0 && luck() < .12) { const variant = Math.floor(luck() * 3), amount = variant < 2 ? 50000 + Math.floor(luck() * 11) * 5000 : 20000 + Math.floor(luck() * 5) * 5000; if (bookMorning(state, amount)) morning.push({ kind: 'gift', variant, amount }); }
+  if (advance && state.day >= 2 && luck() < .12) { const variant = Math.floor(luck() * 3), amounts = WINDFALLS[variant], amount = amounts[Math.floor(luck() * amounts.length)]; if (bookMorning(state, amount)) morning.push({ kind: 'gift', variant, amount }); }
   // Neighbours: today's unfired surprises wait for another day, and tonight's rolls bring tomorrow's (after the tutorial).
   returnIncoming(state, day.prankQueue);
-  if (state.tutorialDone) rollIncoming(state);
+  if (state.tutorialDone && advance) rollIncoming(state);
   const giftsToday = state.neighbours.received.some(entry => entry.day === state.day);
-  const summary = { day: state.day, served: day.served, dineInServed: day.dineInServed, perfect: day.perfect, customers: day.customers, lost: day.lost, priceLost: day.priceLost, revenue: day.revenue, expenses: day.expenses, profit: day.revenue + goalRewards - day.expenses, tips: day.tips, waste: day.waste, spoiled, mistakes: day.mistakes, maxCombo: day.maxCombo, rent: costs.rent, utilities: costs.utilities, wages: costs.wages, wageLines, goalRewards, repayment, principalPaid: payment.principal, interestPaid: payment.interest, debtRecovered, debt: state.debt, cash: state.money, reputation: state.reputation, xpGained: day.xpGained, goalsDone: state.goals.filter(goal => goal.claimed).length };
-  state.history.push(summary); state.history = state.history.slice(-100); state.lastDay = summary; state.stats.daysPlayed++; state.stats.bestDay = Math.max(state.stats.bestDay, day.revenue); state.day++; state.phase = 'prep'; state.activeDay = null; state.goals = goalsFor(state); lockEvent(state);
+  const summary = { day: state.day, served: day.served, dineInServed: day.dineInServed, perfect: day.perfect, customers: day.customers, lost: day.lost, priceLost: day.priceLost, revenue: day.revenue, expenses: day.expenses, profit: day.revenue + goalRewards - day.expenses, tips: day.tips, waste: day.waste, spoiled, mistakes: day.mistakes, maxCombo: day.maxCombo, rent: costs.rent, utilities: costs.utilities, wages: costs.wages, wageLines, goalRewards, repayment, principalPaid: payment.principal, interestPaid: payment.interest, debtRecovered, debt: state.debt, cash: state.money, reputation: state.reputation, xpGained: day.xpGained, goalsDone: state.goals.filter(goal => goal.claimed).length, appOrders: day.appOrders, stars: dayStars(state, day), repeat: !advance };
+  // A chapter ends at closing when its goal is met and the level has reached the next band.
+  let chapter = null;
+  if (advance && state.story.stage < 5 && chapterGoal(state).done && stageBand(levelInfo(state).level) > state.story.stage) { chapter = ++state.story.stage; notify(`🏮 Sang trang mới: ${CHAPTERS[chapter - 1].name}!`, 'good', 'levelUp', { kind: 'chapter', stage: chapter }); }
+  state.history.push(summary); state.history = state.history.slice(-HISTORY_CAP); state.lastDay = summary; state.stats.daysPlayed++; state.stats.bestDay = Math.max(state.stats.bestDay, day.revenue); if (advance) state.day++; state.phase = 'prep'; state.activeDay = null; if (advance) state.goals = goalsFor(state); lockEvent(state);
+  if (chapter) morning.push({ kind: 'chapter', stage: chapter });
   // The kitchen romance, for the new day: both cooks still away, or both back (with wedding candy after the gift: more
   // buzz tomorrow). Nothing if either was let go. Ended away windows and pay cuts are then dropped.
   const romance = state.romance;
-  if (romance) {
+  if (romance && advance) {
     const away = state.staffAway.chef, both = state.staff.chef && state.staff.broth;
     if (both && away && away[0] <= state.day && state.day <= away[1]) morning.push({ kind: 'staffAway', until: away[1] });
     else if (both && romance.backDay === state.day) { morning.push({ kind: 'staffBack', gift: !!romance.gift }); if (romance.gift) state.buzzNext = Math.min(.5, state.buzzNext + .2); }
@@ -884,16 +930,21 @@ export function tickDay(state, seconds, random = Math.random) {
     automation(state, dt);
     if (state.phase === 'open') {
       day.spawnElapsed += dt;
-      if (day.remaining > 8 && day.spawnElapsed >= (day.nextArrival ?? 10)) { createOrder(state, safeRandom); day.spawnElapsed = 0; day.nextArrival = 10 / traffic(state) * (.75 + safeRandom() * .5); }
+      // No walk-ins in the home kitchen. A due reviewer is simply the next guest who takes a seat.
+      if (capacity(state) > 0 && day.remaining > 8 && day.spawnElapsed >= (day.nextArrival ?? 1)) {
+        const reviewer = day.reviewerPending, visit = createOrderFor(state, safeRandom, false, reviewer ? { noTrait: true } : {});
+        if (reviewer && visit.ok) { day.reviewerPending = false; visit.order.reviewer = true; visit.order.name = 'Reviewer ẩm thực'; notify('Một reviewer ẩm thực vừa ngồi xuống: đánh giá được tính gấp ba!', 'good', 'chime', { kind: 'reviewer', orderId: visit.order.id }); }
+        day.spawnElapsed = 0; day.nextArrival = 10 / traffic(state) * (.75 + safeRandom() * .5);
+      }
       day.appSpawnElapsed += dt;
       // The day's interplanetary order arrives at its scheduled time, or retries every 5 s while the queue is full.
       if (day.planetAt !== null && day.elapsed >= day.planetAt) {
         if (day.remaining <= 12) day.planetAt = null;
         else { const choices = PLANETS.filter(row => row.level <= levelInfo(state).level), planet = choices[Math.floor(safeRandom() * choices.length)], visit = planet ? createOrderFor(state, safeRandom, true, { planet: planet.id }) : fail(''); if (visit.ok) { day.planetAt = null; notify(`🚀 Đơn liên hành tinh từ ${planet.name}: ${visit.order.name} đặt một tô!`, 'good', 'chime', { kind: 'planetOrder', planet: planet.id, orderId: visit.order.id }); } else day.planetAt = Math.min(280, day.elapsed + 5); }
       }
-      if (state.upgrades.delivery && day.remaining > 10 && day.appSpawnElapsed >= day.nextAppArrival) { createOrderFor(state, safeRandom, true); day.appSpawnElapsed = 0; day.nextAppArrival = 22 / traffic(state, false) * (day.event.id === 'rain' ? .5 : 1) * (.7 + safeRandom() * .6); }
-      if (day.event.id === 'students' && !day.studentsSpawned && day.elapsed >= DAY_DURATION * .45) { for (let i = 0; i < 3; i++) createOrderFor(state, safeRandom, false, { bypassPrice: true }); day.studentsSpawned = true; notify('Một nhóm học sinh tan học ghé quán!', 'neutral', 'customerArrive', { kind: 'students' }); }
-      if (day.event.id === 'reviewer' && !day.reviewerSpawned && day.elapsed >= DAY_DURATION * .35) { const visit = createOrderFor(state, safeRandom, false, { bypassPrice: true, noTrait: true }); if (visit.ok || visit.walkedAway) day.reviewerSpawned = true; if (visit.ok) { visit.order.reviewer = true; visit.order.name = 'Reviewer ẩm thực'; notify('Một reviewer ẩm thực vừa ngồi xuống: đánh giá được tính gấp ba!', 'good', 'chime', { kind: 'reviewer', orderId: visit.order.id }); } }
+      if (appAllowed(state) && day.remaining > 10 && day.appSpawnElapsed >= day.nextAppArrival) { createOrderFor(state, safeRandom, true); day.appSpawnElapsed = 0; day.nextAppArrival = 22 / traffic(state, false) * (day.event.id === 'rain' ? .5 : 1) * (storyStage(state) === 1 ? .55 : 1) * (.7 + safeRandom() * .6); }
+      if (day.event.id === 'students' && storyStage(state) >= 2 && !day.studentsSpawned && day.elapsed >= DAY_DURATION * .45) { for (let i = 0; i < 3; i++) createOrderFor(state, safeRandom, false, { bypassPrice: true }); day.studentsSpawned = true; notify('Một nhóm học sinh tan học ghé quán!', 'neutral', 'customerArrive', { kind: 'students' }); }
+      if (day.event.id === 'reviewer' && !day.reviewerSpawned && day.elapsed >= DAY_DURATION * .35) { day.reviewerSpawned = true; day.reviewerPending = true; day.nextArrival = Math.min(day.nextArrival ?? 1, day.spawnElapsed + .5); }
       // Street stories wait while a bowl is in hand; a slot beyond the daily cap is dropped.
       if (day.storyTimes.length && day.elapsed >= day.storyTimes[0]) {
         if (day.bowl.started) { day.storyTimes[0] = Math.min(280, day.elapsed + 2); day.storyTimes.sort((a, b) => a - b); }
@@ -940,7 +991,7 @@ function cleanWageLines(lines, wages) {
   const result = []; for (const line of lines) { if (!line || !STAFF.some(member => member.id === line.id) || typeof line.name !== 'string' || line.name.length > 40 || !int(line.amount, 1e7, 1) || typeof line.cut !== 'boolean') return null; result.push(copy(line, ['id', 'name', 'amount', 'cut'])); }
   return new Set(result.map(line => line.id)).size === result.length && (!result.length || result.reduce((sum, line) => sum + line.amount, 0) === wages) ? result : null;
 }
-function cleanSummary(summary) { if (!summary) return null; summary = { perfect: 0, dineInServed: summary.served, debtRecovered: 0, xpGained: 0, goalsDone: 0, priceLost: 0, ...summary }; if (!summaryNumbers.every(key => int(summary[key], key === 'day' ? 1e6 : 1e12)) || !cash(summary.profit) || !cash(summary.cash) || summary.profit !== summary.revenue + summary.goalRewards - summary.expenses || !finite(summary.reputation, 1, 5) || !int(summary.perfect, 1e9) || !int(summary.dineInServed, summary.served) || !int(summary.debtRecovered, 1e12) || !int(summary.xpGained, 1e9) || !int(summary.goalsDone, 3) || !int(summary.priceLost, 1e9)) return null; const wageLines = cleanWageLines(summary.wageLines, summary.wages); if (!wageLines) return null; return { ...copy(summary, [...summaryNumbers, 'perfect', 'dineInServed', 'debtRecovered', 'profit', 'cash', 'reputation', 'xpGained', 'goalsDone', 'priceLost']), wageLines }; }
+function cleanSummary(summary) { if (!summary) return null; summary = { perfect: 0, dineInServed: summary.served, debtRecovered: 0, xpGained: 0, goalsDone: 0, priceLost: 0, appOrders: 0, stars: null, repeat: false, ...summary }; if (!int(summary.appOrders, summary.served) || !(summary.stars === null || finite(summary.stars, 1, 5)) || typeof summary.repeat !== 'boolean') return null; if (!summaryNumbers.every(key => int(summary[key], key === 'day' ? 1e6 : 1e12)) || !cash(summary.profit) || !cash(summary.cash) || summary.profit !== summary.revenue + summary.goalRewards - summary.expenses || !finite(summary.reputation, 1, 5) || !int(summary.perfect, 1e9) || !int(summary.dineInServed, summary.served) || !int(summary.debtRecovered, 1e12) || !int(summary.xpGained, 1e9) || !int(summary.goalsDone, 3) || !int(summary.priceLost, 1e9)) return null; const wageLines = cleanWageLines(summary.wageLines, summary.wages); if (!wageLines) return null; return { ...copy(summary, [...summaryNumbers, 'perfect', 'dineInServed', 'debtRecovered', 'profit', 'cash', 'reputation', 'xpGained', 'goalsDone', 'priceLost', 'appOrders', 'stars', 'repeat']), wageLines }; }
 function cleanGoals(goals) {
   if (!Array.isArray(goals) || goals.length !== 3 || new Set(goals.map(goal => goal?.id)).size !== 3) return null;
   const result = [];
@@ -951,14 +1002,18 @@ function cleanActive(source, state) {
   if (!source || source.day !== state.day || source.duration !== 210 || !finite(source.remaining, 0, 210) || !finite(source.closingRemaining, 0, 60) || !finite(source.elapsed, 0, 271) || !finite(source.spawnElapsed, 0, 1000)) return null;
   if (state.phase === 'open' && Math.abs(source.elapsed - (210 - source.remaining)) > 1e-5 || state.phase === 'closing' && (source.elapsed > 270 - source.closingRemaining + 1e-5 || source.elapsed < 60 - source.closingRemaining - 1e-5)) return null;
   // Up to two deliveries: app orders need the delivery app, interplanetary ones only the spaceport.
-  if (!Array.isArray(source.orders) || source.orders.length > capacity(state) + 2 || source.orders.filter(order => order?.delivery === true).length > (state.upgrades.delivery || state.upgrades.spaceport ? 2 : 0) || source.orders.some(order => order?.delivery === true && !order.planet && !state.upgrades.delivery) || source.orders.filter(order => order?.delivery === false).length > capacity(state) || new Set(source.orders.map(order => order?.id)).size !== source.orders.length) return null;
+  // The home kitchen has no tables, but the tutorial's first guest may still be waiting at one.
+  const seats = capacity(state) || 1, queue = appAllowed(state) || state.upgrades.spaceport ? deliveryCap(state) : 0;
+  if (!Array.isArray(source.orders) || source.orders.length > seats + queue || source.orders.filter(order => order?.delivery === true).length > queue || source.orders.some(order => order?.delivery === true && !order.planet && !appAllowed(state)) || source.orders.filter(order => order?.delivery === false).length > seats || new Set(source.orders.map(order => order?.id)).size !== source.orders.length) return null;
   const countKeys = ['served', 'lost', 'customers', 'mistakes', 'perfect', 'ideal', 'combo', 'maxCombo', 'buyerTrips'], moneyKeys = ['revenue', 'expenses', 'waste', 'tips'];
-  if (!countKeys.every(key => int(source[key], 1e9)) || !moneyKeys.every(key => int(source[key], 1e12)) || source.lost + source.orders.length > source.customers || source.buyerTrips > 4) return null;
+  if (!countKeys.every(key => int(source[key], 1e9)) || !moneyKeys.every(key => int(source[key], 1e12)) || source.lost + source.orders.length > source.customers + (source.soldOutWalks ?? 0) || source.buyerTrips > 4) return null;
   if (!['served', 'lost', 'customers', 'mistakes', 'perfect', 'revenue', 'expenses', 'waste', 'tips'].every(key => source[key] <= state.stats[key]) || state.stats.lost + source.orders.length > 1e9 || state.day >= 999999 || state.stats.daysPlayed >= 1e6) return null;
   const day = newDay(state); Object.assign(day, copy(source, ['day', 'remaining', 'closingRemaining', 'elapsed', 'spawnElapsed', ...countKeys, ...moneyKeys]));
   for (const key of ['dineInServed', 'spicy', 'deliveries', 'noLost']) { day[key] = source[key] ?? (key === 'dineInServed' ? source.served : 0); if (!int(day[key], 1e9)) return null; }
   day.goalRewards = source.goalRewards ?? 0; if (!int(day.goalRewards, 1e6)) return null;
   day.chefCooldown = source.chefCooldown ?? 0; if (!finite(day.chefCooldown, 0, .8)) return null;
+  day.reviewerPending = source.reviewerPending ?? false; day.appOrders = source.appOrders ?? 0; day.soldOutWalks = source.soldOutWalks ?? 0; day.firstOrderId = source.firstOrderId ?? 1;
+  if (typeof day.reviewerPending !== 'boolean' || !int(day.appOrders, source.served) || !int(day.soldOutWalks, source.lost) || !int(day.firstOrderId, state.nextOrderId, 1)) return null;
   day.appSpawnElapsed = source.appSpawnElapsed ?? 0; day.nextAppArrival = source.nextAppArrival ?? 22; day.studentsSpawned = source.studentsSpawned ?? false; day.reviewerSpawned = source.reviewerSpawned ?? false;
   if (!finite(day.appSpawnElapsed, 0, 271) || !finite(day.nextAppArrival, .1, 1000) || typeof day.studentsSpawned !== 'boolean' || typeof day.reviewerSpawned !== 'boolean') return null;
   day.incidentCount = source.incidentCount ?? 0; day.lastIncidentAt = source.lastIncidentAt ?? -30; day.buzz = source.buzz ?? 0; day.slowUntil = source.slowUntil ?? 0;
@@ -1019,6 +1074,7 @@ function cleanNote(note, state) {
   if (note.kind === 'debtPaid' || note.kind === 'debtLost') return int(note.amount, 2000000, 1) && typeof note.name === 'string' && note.name && note.name.length <= 80 && note.variant === undefined ? copy(note, ['kind', 'amount', 'name']) : null;
   if (note.kind === 'staffAway') return int(note.until, state.day + 3, state.day) ? copy(note, ['kind', 'until']) : null;
   if (note.kind === 'staffBack') return typeof note.gift === 'boolean' ? copy(note, ['kind', 'gift']) : null;
+  if (note.kind === 'chapter') return int(note.stage, state.story.stage, 2) ? copy(note, ['kind', 'stage']) : null;
   if (note.kind === 'neighbourGifts') return int(note.day, state.day - 1, 1) ? copy(note, ['kind', 'day']) : null;
   return null;
 }
@@ -1041,6 +1097,9 @@ export function loadGame(storage) {
     if (data.staffAway !== undefined) { const away = data.staffAway; if (!away || typeof away !== 'object' || Array.isArray(away)) return null; const rows = Object.entries(away); if (!rows.every(([id, window]) => ROMANCE_IDS.includes(id) && Array.isArray(window) && window.length === 2 && int(window[0], 1e6, 1) && int(window[1], window[0] + 3, window[0]))) return null; state.staffAway = Object.fromEntries(rows.map(([id, window]) => [id, [...window]])); }
     state.wageCut = data.wageCut ?? null;
     if (state.wageCut !== null) { const cut = state.wageCut; if (typeof cut !== 'object' || Array.isArray(cut) || !Array.isArray(cut.ids) || !cut.ids.length || new Set(cut.ids).size !== cut.ids.length || !cut.ids.every(id => ROMANCE_IDS.includes(id)) || !finite(cut.rate, .05, .95) || !int(cut.until, 1e6, 1)) return null; state.wageCut = { ids: [...cut.ids], rate: cut.rate, until: cut.until }; }
+    // Startup chapters. A save from before them starts at the chapter its level has reached, already seen.
+    if (data.story === undefined) { const stage = stageBand(levelInfo(state).level); state.story = { stage, seen: stage }; }
+    else { const story = data.story; if (!story || typeof story !== 'object' || Array.isArray(story) || !int(story.stage, 5, 1) || !int(story.seen, story.stage, 1)) return null; state.story = copy(story, ['stage', 'seen']); }
     state.neighbours = cleanNeighbours(data.neighbours, state); if (!state.neighbours) return null;
     if (data.morning !== undefined) { if (!Array.isArray(data.morning) || data.morning.length > 12) return null; state.morning = []; for (const note of data.morning) { const clean = cleanNote(note, state); if (!clean) return null; state.morning.push(clean); } }
     if (!Array.isArray(data.unlocked) || data.unlocked.length > INGREDIENTS.length || new Set(data.unlocked).size !== data.unlocked.length || !data.unlocked.every(id => items.has(id)) || !INITIAL_INGREDIENT_IDS.every(id => data.unlocked.includes(id))) return null; state.unlocked = [...data.unlocked];
@@ -1061,7 +1120,7 @@ export function loadGame(storage) {
     state.decoration.owned = [...data.decoration.owned]; for (const type of ['awning', 'pet', 'plant', 'lamp']) { const id = data.decoration.selected?.[type]; if (id !== null && (!state.decoration.owned.includes(id) || !DECORATIONS.some(item => item.id === id && item.type === type))) return null; state.decoration.selected[type] = id; }
     for (const key of ['sound', 'music', 'motion']) if (typeof data.settings?.[key] === 'boolean') state.settings[key] = data.settings[key]; if (['light', 'dark'].includes(data.settings?.theme)) state.settings.theme = data.settings.theme;
     state.goals = cleanGoals(data.goals); if (!state.goals) return null;
-    state.reviews = Array.isArray(data.reviews) ? data.reviews.map(cleanReview).filter(Boolean).slice(-100) : []; state.history = Array.isArray(data.history) ? data.history.map(cleanSummary).filter(Boolean).slice(-100) : []; state.lastDay = cleanSummary(data.lastDay);
+    state.reviews = Array.isArray(data.reviews) ? data.reviews.map(cleanReview).filter(Boolean).slice(-REVIEW_CAP) : []; state.history = Array.isArray(data.history) ? data.history.map(cleanSummary).filter(Boolean).slice(-HISTORY_CAP) : []; state.lastDay = cleanSummary(data.lastDay);
     if (state.phase === 'prep') { if (data.activeDay !== null) return null; } else { if (state.pendingExpenses !== 0 || state.pendingIncome !== 0) return null; state.activeDay = cleanActive(data.activeDay, state); if (!state.activeDay) return null; if (state.phase === 'closing' && state.activeDay.remaining !== 0) return null; const maximum = Math.max(0, ...state.activeDay.orders.map(order => Number(order.id.split('-order-')[1]))); state.nextOrderId = Math.max(state.nextOrderId, maximum + 1); if (state.nextOrderId >= 1e9) return null; }
     if (typeof data.legacySave === 'string' && data.legacySave.length <= 1000000) state.legacySave = data.legacySave;
     if (!int(state.stats.waste + wasteReserve(state), 1e12)) return null;
@@ -1073,6 +1132,7 @@ function migrateV1(data, raw) {
   const state = createGame(data.name); state.lastNews = 0;
   const mapping = { noodles: 'noodles', broth: 'kimchi', beef: 'beef', seafood: 'seafood', mushroom: 'mushroom', greens: 'greens', egg: 'egg', kimchi: 'kimchi_topping' };
   state.money = data.money; state.day = data.day; state.legacySave = raw.length <= 1000000 ? raw : null; state.xp = Math.min(1e9, (int(data.stats?.served) ? data.stats.served : 0) * 18); state.reputation = finite(data.reputation, 1, 5) ? data.reputation : 4;
+  { const stage = stageBand(levelInfo(state).level); state.story = { stage, seen: stage }; }
   for (const [old, id] of Object.entries(mapping)) { const qty = data.inventory?.[old]; if (!int(qty, 1e6)) return null; if (qty) { const item = items.get(id); state.inventory[id] = qty; state.batches[id] = [{ qty, cost: item.price, expiresDay: item.expiryDays === null ? null : state.day + item.expiryDays - 1 }]; if (!state.unlocked.includes(id)) state.unlocked.push(id); } }
   state.inventory.bowls = state.inventory.noodles; if (state.inventory.bowls) state.batches.bowls = [{ qty: state.inventory.bowls, cost: 0, expiresDay: null }];
   for (const key of Object.keys(state.stats)) if (int(data.stats?.[key], 1e12)) state.stats[key] = data.stats[key]; state.stats.tips = int(data.stats?.totalTips, 1e12) ? data.stats.totalTips : 0;
@@ -1097,7 +1157,7 @@ function migrateV1(data, raw) {
     }
     // Old saves allowed six tables. Keep excess paid progress in the backup;
     // convert overflow visitors to departures so the new capacity stays valid.
-    while (day.orders.length > capacity(state)) { day.orders.pop(); day.lost++; state.stats.lost++; }
+    while (day.orders.length > (capacity(state) || 1)) { day.orders.pop(); day.lost++; state.stats.lost++; }
     // Version 1 counted only finished visitors; waiting customers must be included or the validator rejects the save.
     state.stats.customers = Math.max(state.stats.customers, day.customers, state.stats.served + state.stats.lost + day.orders.length);
     day.selectedOrderId = day.orders[0]?.id ?? null; state.activeDay = day; state.pendingExpenses = 0; state.phase = day.remaining > 0 ? 'open' : 'closing'; state.nextOrderId = Math.max(state.nextOrderId, 1 + Math.max(0, ...day.orders.map(order => Number(order.id.split('-order-')[1]))));

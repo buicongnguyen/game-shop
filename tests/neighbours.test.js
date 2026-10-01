@@ -11,12 +11,13 @@ const load = data => g.loadGame({ getItem: () => JSON.stringify(data) });
 const constant = value => () => value;
 const clone = value => JSON.parse(JSON.stringify(value));
 
-function shop(day = 10) { const state = g.createGame('Tiệm hàng xóm'); state.day = day; state.money = 3000000; return state; }
+// Level 1 is the home kitchen: the extra table seats walk-ins, and app orders are held back in open().
+function shop(day = 10) { const state = g.createGame('Tiệm hàng xóm'); state.day = day; state.money = 3000000; state.upgrades.table = true; return state; }
 // Opens with stock, no story windows and no walk-in guests (day 10 is a quiet weekday).
 function open(state) {
   const cart = {}; for (const id of ['bowls', 'noodles', 'kimchi', 'beef', 'sausage']) if (state.inventory[id] < 20) cart[id] = 20;
   if (Object.keys(cart).length) assert.equal(g.buyCart(state, cart).ok, true);
-  assert.equal(g.beginDay(state, constant(.99)).ok, true); state.activeDay.nextArrival = 999; g.takeNotices(); return state;
+  assert.equal(g.beginDay(state, constant(.99)).ok, true); state.activeDay.nextArrival = 999; state.activeDay.nextAppArrival = 999; g.takeNotices(); return state;
 }
 function close(state) { let result = g.finishDay(state); if (result.closing) result = g.finishDay(state); assert.equal(result.finished, true, result.message); return result.summary; }
 const tickTo = (state, time) => g.tickDay(state, Math.max(0, time - state.activeDay.elapsed), constant(.5));
@@ -167,7 +168,7 @@ test('a surprise that cannot happen yet tries again every 5 s, six attempts in a
   assert.equal(g.takeNotices().length, 0, 'silently'); assert.equal(state.activeDay.pendingIncident, null);
   // A tour needs a free table: with every table taken it waits, and comes once one frees up.
   const busy = shop(10); busy.neighbours.incoming = [{ from: 'pho', kind: 'tour' }]; open(busy);
-  for (let i = 0; i < 3; i++) guest(busy).patience = 900;
+  for (let i = 0; i < g.capacity(busy); i++) guest(busy).patience = 900;
   tickTo(busy, busy.activeDay.prankQueue[0].at + .05); assert.equal(busy.activeDay.prankQueue[0].tries, 1);
   busy.activeDay.orders = []; busy.activeDay.selectedOrderId = null; tickTo(busy, busy.activeDay.prankQueue[0].at + .05);
   assert.equal(busy.activeDay.pendingIncident?.story, 'tour'); assert.equal(busy.activeDay.pendingIncident.from, 'pho');

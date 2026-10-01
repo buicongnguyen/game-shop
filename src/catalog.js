@@ -102,17 +102,18 @@ export const DECORATIONS = freezeRows([
   decoration('lamp_chime', 'Chuông gió', 'lamp', 90000, 5, 'chime', '🎐'),
 ]);
 
+// Level titles change at levels 1, 3, 5, 8 and 10, the same bands as the startup chapters.
 export const LEVELS = freezeRows([
-  { level: 1, xp: 0, title: 'Xe đẩy vỉa hè' },
-  { level: 2, xp: 150, title: 'Xe đẩy vỉa hè' },
-  { level: 3, xp: 450, title: 'Quán cóc' },
-  { level: 4, xp: 900, title: 'Quán cóc' },
-  { level: 5, xp: 1500, title: 'Tiệm nhỏ' },
-  { level: 6, xp: 2300, title: 'Tiệm nhỏ' },
-  { level: 7, xp: 3300, title: 'Tiệm nổi tiếng' },
-  { level: 8, xp: 4500, title: 'Tiệm nổi tiếng' },
-  { level: 9, xp: 6000, title: 'Vua mì cay' },
-  { level: 10, xp: 8000, title: 'Vua mì cay' },
+  { level: 1, xp: 0, title: 'Bếp nhà bán online' },
+  { level: 2, xp: 150, title: 'Bếp nhà bán online' },
+  { level: 3, xp: 450, title: 'Xe mì đường phố' },
+  { level: 4, xp: 900, title: 'Xe mì đường phố' },
+  { level: 5, xp: 1500, title: 'Tiệm mì nhỏ' },
+  { level: 6, xp: 2300, title: 'Tiệm mì nhỏ' },
+  { level: 7, xp: 3300, title: 'Tiệm mì nhỏ' },
+  { level: 8, xp: 4500, title: 'Tiệm hai tầng' },
+  { level: 9, xp: 6000, title: 'Tiệm hai tầng' },
+  { level: 10, xp: 8000, title: 'Chuỗi mì cay' },
 ]);
 
 const event = (id, name, description, traffic, extra = {}) =>

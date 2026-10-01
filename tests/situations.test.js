@@ -9,13 +9,16 @@ const constant = value => () => value;
 // Returns the listed values in order, then the fallback.
 const sequence = (values, fallback = .5) => { let index = 0; return () => index < values.length ? values[index++] : fallback; };
 // A stocked shop on a quiet weekday (day 10) with no scheduled stories and, when asked, no new arrivals.
-function openOn(day = 10, { tutorial = false, arrivals = true } = {}) {
-  const state = g.createGame('Tiệm tình huống', { tutorial }); state.day = day; state.money = 3000000;
+function openOn(day = 10, { tutorial = false, arrivals = true, xp = 0, event = null } = {}) {
+  // Level 1 is the home kitchen (chapter 1): the extra table seats walk-ins, and app orders are held back.
+  const state = g.createGame('Tiệm tình huống', { tutorial }); state.day = day; state.money = 3000000; state.upgrades.table = true;
+  if (xp) { state.xp = xp; state.story.stage = g.stageBand(g.levelInfo(state).level); }
+  if (event) state.nextEvent = { day, id: event, item: null };
   assert.equal(g.buyCart(state, { bowls: 30, noodles: 30, kimchi: 20, beef: 20, sausage: 20 }).ok, true);
   assert.equal(g.beginDay(state, constant(.99)).ok, true);
   assert.deepEqual(state.activeDay.storyTimes, []);
   if (!arrivals) state.activeDay.nextArrival = 999;
-  g.takeNotices();
+  state.activeDay.nextAppArrival = 999; g.takeNotices();
   return state;
 }
 // Kimchi broth with one beef topping at the given spice level: 50,000đ at default prices.
@@ -32,7 +35,7 @@ function cook(state, order) {
 function close(state) { let result = g.finishDay(state); if (result.closing) result = g.finishDay(state); return result; }
 
 test('stories fall in the day windows, wait for the bowl in hand, pause the clock and respect the daily cap', () => {
-  const state = g.createGame('Tiệm tình huống'); state.day = 10; state.money = 3000000;
+  const state = g.createGame('Tiệm tình huống'); state.day = 10; state.money = 3000000; state.upgrades.table = true;
   assert.equal(g.buyCart(state, { bowls: 30, noodles: 30, kimchi: 20, beef: 20, sausage: 20 }).ok, true);
   assert.equal(g.beginDay(state, constant(.1)).ok, true);
   assert.deepEqual(state.activeDay.storyTimes, [28.98, 84, 138.6]);
@@ -71,7 +74,7 @@ test('story choices apply money, slow stoves and patience once', () => {
   g.forceStory(state, 'gas'); g.resolveIncident(state, 'backup');
   assert.equal(state.activeDay.slowUntil, state.activeDay.elapsed + 40);
   assert.equal(g.startPot(state, 0).ok, true); g.tickDay(state, 1, constant(.5));
-  assert.ok(Math.abs(state.activeDay.pots[0].elapsed - .65) < 1e-6, 'pots cook at 65% speed on the backup burner');
+  assert.ok(Math.abs(state.activeDay.pots[0].elapsed - 1 / 1.6) < 1e-6, 'pots take 1.6× as long on the backup burner');
   g.forceStory(state, 'power'); const before = order.patience; g.resolveIncident(state, 'endure');
   assert.equal(order.patience, before - 10);
   order.patience = 3; g.forceStory(state, 'power'); g.resolveIncident(state, 'endure');
@@ -173,9 +176,10 @@ test('arriving guests switch to a stocked topping or walk away when their dish i
   const customers = state.activeDay.customers, reviews = state.reviews.length;
   const walked = g.createOrder(state, sequence([.5, .5, .1, .5, .5, .9, .1, .1]));
   assert.equal(walked.ok, false); assert.equal(walked.walkedAway, true);
-  assert.equal(state.activeDay.customers, customers + 1); assert.equal(state.activeDay.lost, 1);
+  assert.equal(state.activeDay.customers, customers, 'a guest who walks on at the door is not a customer'); assert.equal(state.activeDay.lost, 1); assert.equal(state.activeDay.soldOutWalks, 1);
   assert.equal(state.reviews.length, reviews + 1); assert.equal(state.reviews.at(-1).rating, 2);
-  assert.equal(g.takeNotices().at(-1).cue, 'customerLeave');
+  { const note = g.takeNotices().at(-1); assert.equal(note.cue, 'customerLeave'); assert.equal(note.kind, 'soldOutWalk'); assert.equal(note.item, 'beef'); }
+  assert.deepEqual(restore(state), state);
   g.createOrder(state, sequence([.5, .5, .1, .5, .5, .9, .9])); assert.equal(state.reviews.length, reviews + 1, 'most walk-aways leave no review');
 });
 
@@ -391,13 +395,18 @@ test('price tags, and guests who walk away from severe or expensive prices', () 
   assert.equal(state.lastDay.priceLost, 3); assert.equal(state.lastDay.lost, 0, 'price walk-aways are counted apart from lost guests');
 });
 
-test('students and the reviewer ignore prices', () => {
-  const state = openOn(4, { arrivals: false }); assert.equal(state.activeDay.event.id, 'students');
+test('students ignore prices; the reviewer is the next ordinary arrival and checks them', () => {
+  const state = openOn(4, { arrivals: false, xp: 450, event: 'students' }); assert.equal(state.activeDay.event.id, 'students');
   state.prices.kimchi = 71000; g.tickDay(state, 95, constant(.5));
   assert.equal(state.activeDay.orders.length, 3); assert.equal(state.activeDay.priceLost, 0);
   const review = openOn(8, { arrivals: false }); assert.equal(review.activeDay.event.id, 'reviewer');
-  review.prices.kimchi = 71000; g.tickDay(review, 74, constant(.5));
-  assert.ok(review.activeDay.orders.some(order => order.reviewer && order.trait === null)); assert.equal(review.activeDay.priceLost, 0);
+  review.prices.kimchi = 71000; g.tickDay(review, 73.6, constant(.5));
+  assert.equal(review.activeDay.reviewerPending, true, 'due at 35% of the day'); assert.ok(review.activeDay.nextArrival <= review.activeDay.spawnElapsed + .5, 'the next arrival is pulled in to half a second');
+  g.tickDay(review, .5, constant(.5));
+  assert.equal(review.activeDay.priceLost, 1, 'a severe price turns the reviewer away like anyone'); assert.equal(review.activeDay.reviewerPending, true, 'still due: only a seated reviewer uses the flag');
+  assert.deepEqual(restore(review), review);
+  review.prices.kimchi = 35000; review.activeDay.nextArrival = review.activeDay.spawnElapsed + .2; g.tickDay(review, .3, constant(.5));
+  assert.ok(review.activeDay.orders.some(order => order.reviewer && order.trait === null)); assert.equal(review.activeDay.reviewerPending, false);
 });
 
 test('guests steer away from what the last six orders had', () => {
@@ -411,7 +420,7 @@ test('guests steer away from what the last six orders had', () => {
 });
 
 test('review fixes: the reviewer keeps full patience, two level-ups both queue, and the inspection is free', () => {
-  const review = openOn(8, { arrivals: false }); g.tickDay(review, 74, constant(.05));
+  const review = openOn(8, { arrivals: false }); g.tickDay(review, 74.1, constant(.05));
   const critic = review.activeDay.orders.find(order => order.reviewer); assert.ok(critic); assert.equal(critic.trait, null); assert.equal(critic.maxPatience, 66, 'a reviewer is never a hurried guest');
   const state = openOn(1, { arrivals: false }); state.xp = 140; state.goals[0].target = 1; state.goals[0].rewardXp = 400;
   const order = guest(state); cook(state, order); g.serveBowl(state, constant(.5));
@@ -428,7 +437,7 @@ test('review fixes: the previewed event is kept, promised guests need a table, a
   state.unlocked.push('greens'); state.xp = 5000; assert.deepEqual(g.dayEvent(state), preview, 'unlocking or levelling up in the morning keeps the preview');
   assert.deepEqual(restore(state), state); g.buyCart(state, { kimchi: 5 }); g.beginDay(state, constant(.99));
   assert.equal(state.activeDay.event.id, 'sale'); assert.equal(state.activeDay.event.discountedIngredient, 'sausage');
-  const full = openOn(10, { arrivals: false }); for (let i = 0; i < 3; i++) guest(full);
+  const full = openOn(10, { arrivals: false }); for (let i = 0; i < g.capacity(full); i++) guest(full);
   const customers = full.activeDay.customers; g.forceStory(full, 'rain'); const shelter = g.resolveIncident(full, 'shelter', constant(.5));
   assert.match(shelter.message, /kín bàn/); assert.equal(full.activeDay.customers, customers);
   const saved = JSON.parse(JSON.stringify(state)); saved.morning = [{ kind: 'gift', amount: 50000 }]; assert.equal(g.loadGame({ getItem: () => JSON.stringify(saved) }), null, 'a gift note needs its variant');

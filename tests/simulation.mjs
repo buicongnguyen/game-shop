@@ -8,8 +8,8 @@ import * as g from '../src/game.js';
 const state = g.createGame('Tiệm trăm ngày');
 let seed = 63219, checks = 0, actions = 0; const situations = {};
 const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-const reports = [], romance = { grant: 0, gift: 0, walkout: 0, cut: 0 }, pranks = { sent: 0, received: 0, notices: 0 };
-const NOTE_KINDS = ['debtPaid', 'debtLost', 'gift', 'staffAway', 'staffBack', 'neighbourGifts'];
+const chapters = [], reports = [], romance = { grant: 0, gift: 0, walkout: 0, cut: 0 }, pranks = { sent: 0, received: 0, notices: 0 };
+const NOTE_KINDS = ['debtPaid', 'debtLost', 'gift', 'staffAway', 'staffBack', 'neighbourGifts', 'chapter'];
 const WAGE = Object.fromEntries(g.STAFF.map(member => [member.id, member.wage]));
 function verify() {
   checks++;
@@ -22,7 +22,7 @@ function verify() {
   }
   if (state.activeDay) {
     const day = state.activeDay;
-    assert.ok(day.lost + day.orders.length <= day.customers);
+    assert.ok(day.lost + day.orders.length <= day.customers + day.soldOutWalks);
     assert.ok(day.orders.every(order => order.bowlsServed < order.bowlsTotal && order.patience > 0));
     assert.equal(new Set(day.orders.map(order => order.id)).size, day.orders.length);
     assert.ok(day.pots.every(pot => pot === null || pot.elapsed <= pot.duration));
@@ -50,6 +50,7 @@ function checkNight(summary, awayAtOpen) {
     assert.ok(NOTE_KINDS.includes(note.kind), note.kind);
     if (note.kind === 'staffAway') assert.ok(note.until >= state.day && !g.isStaffActive(state, 'chef') && !g.isStaffActive(state, 'broth'));
     if (note.kind === 'staffBack') assert.ok(state.romance.backDay === state.day && g.isStaffActive(state, 'chef') && g.isStaffActive(state, 'broth'));
+    if (note.kind === 'chapter') { assert.equal(note.stage, state.story.stage); chapters.push([state.day, note.stage]); }
     if (note.kind === 'neighbourGifts') { assert.equal(note.day, state.day - 1); assert.ok(g.receivedOn(state, note.day).length > 0); }
   }
   pranks.received += g.receivedOn(state, state.day - 1).length;
@@ -152,4 +153,4 @@ assert.equal(state.romance?.stage, 3, 'the kitchen romance ran to the wedding');
 assert.equal(romance.grant + romance.gift + romance.walkout + romance.cut, 3); assert.equal(romance.gift, 1); assert.equal(romance.grant, 1);
 assert.ok(reports.some(report => report.wageLines.some(line => line.cut)) || romance.walkout === 1, 'a pay cut or a walkout happened');
 assert.ok(pranks.sent > 50 && pranks.received > 20 && situations.fromNeighbours > 10, `neighbours traded surprises: ${JSON.stringify(pranks)}`);
-console.log(JSON.stringify({ seed: 63219, days: 100, checks, actions, situations, romance, pranks, priceLost: reports.reduce((sum, report) => sum + report.priceLost, 0), pendingIncome: state.pendingIncome, bowls: state.stats.served, customers: state.stats.customers, lost: state.stats.lost, money: state.money, xp: state.xp, level: g.levelInfo(state).level, unlocked: state.unlocked.length, staff: Object.keys(state.staff).filter(id => state.staff[id]), result: 'cash/batches/persistence/timers/wages/romance/neighbours/100-day settlement invariants passed' }));
+console.log(JSON.stringify({ seed: 63219, days: 100, chapters, stage: state.story.stage, repeats: reports.filter(report => report.repeat).length, checks, actions, situations, romance, pranks, priceLost: reports.reduce((sum, report) => sum + report.priceLost, 0), pendingIncome: state.pendingIncome, bowls: state.stats.served, customers: state.stats.customers, lost: state.stats.lost, money: state.money, xp: state.xp, level: g.levelInfo(state).level, unlocked: state.unlocked.length, staff: Object.keys(state.staff).filter(id => state.staff[id]), result: 'cash/batches/persistence/timers/wages/romance/neighbours/100-day settlement invariants passed' }));

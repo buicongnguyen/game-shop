@@ -8,7 +8,7 @@ const restore = state => g.loadGame({ getItem: () => JSON.stringify(state) });
 const constant = value => () => value;
 const sequence = (values, fallback = .5) => { let index = 0; return () => index < values.length ? values[index++] : fallback; };
 function shop({ day = 10, xp = 950, upgrades = [], begin = constant(.99) } = {}) {
-  const state = g.createGame('Tiệm giao xa'); state.day = day; state.xp = xp; state.money = 5000000;
+  const state = g.createGame('Tiệm giao xa'); state.day = day; state.xp = xp; state.story.stage = g.stageBand(g.levelInfo(state).level); state.money = 5000000;
   for (const id of upgrades) state.upgrades[id] = true;
   assert.equal(g.buyCart(state, { bowls: 30, noodles: 30, kimchi: 20, beef: 20, sausage: 20 }).ok, true);
   assert.equal(g.beginDay(state, begin).ok, true); state.activeDay.nextArrival = 999; g.takeNotices();

@@ -287,13 +287,14 @@ async function persistCurrent(page) { await page.evaluate(()=>window.dispatchEve
 function prepFixture() {const state=G.createGame('Tiệm thử thao tác');state.day=3;state.money=1000000;state.settings.sound=false;state.settings.motion=false;return state;}
 function openFixture({cooking=false,extraPot=false,delivery=false,chef=false,almostBurnt=false,emptyBowl=false}={}) {
   const state=prepFixture();
-  if(extraPot||delivery||chef) state.xp=8000;
+  // A raised level plays its chapter; a level-1 shop (the home kitchen) seats walk-ins at the extra table.
+  if(extraPot||delivery||chef){state.xp=8000;state.story.stage=G.stageBand(G.levelInfo(state).level);} else state.upgrades.table=true;
   state.money=100000000;
   assert.ok(G.buyCart(state,{bowls:30,noodles:30,kimchi:30,beef:30,sausage:30}).ok);
   if(extraPot) assert.ok(G.buyUpgrade(state,'pot2').ok);
   if(delivery) assert.ok(G.buyUpgrade(state,'delivery').ok);
   if(chef) assert.ok(G.hireStaff(state,'chef').ok);
-  assert.ok(G.beginDay(state).ok);
+  assert.ok(G.beginDay(state).ok); if(!delivery) state.activeDay.nextAppArrival=999;
   assert.ok(G.createOrder(state,()=>.4).ok);assert.ok(G.createOrder(state,()=>.6).ok);
   if(delivery) G.tickDay(state,22.1,()=>.5);
   if(cooking||chef||emptyBowl) assert.ok(G.takeBowl(state).ok);

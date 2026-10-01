@@ -4,7 +4,11 @@ import * as g from '../src/game.js';
 
 const restore = state => g.loadGame({ getItem: () => JSON.stringify(state) });
 const constant = () => .5;
-function opened() { const state = g.createGame('Tiệm kiểm thử'); assert.equal(g.buyCart(state, g.suggestedCart(state)).ok, true); assert.equal(g.beginDay(state).ok, true); return state; }
+// Level-1 fixtures that seat walk-in guests take the extra table: the home kitchen (chapter 1) has no seats of its own.
+const seat = state => { state.upgrades.table = true; return state; };
+// A fixture whose xp was raised plays the chapter its level has reached.
+const grown = state => { state.story.stage = g.stageBand(g.levelInfo(state).level); return state; };
+function opened() { const state = seat(g.createGame('Tiệm kiểm thử')); assert.equal(g.buyCart(state, g.suggestedCart(state)).ok, true); assert.equal(g.beginDay(state).ok, true); return state; }
 function orderFor(state, random = constant) { const result = g.createOrder(state, random); assert.equal(result.ok, true, result.message); return result.order; }
 function prepare(state, order, progress = .64) {
   assert.equal(g.takeBowl(state).ok, true);
@@ -96,13 +100,14 @@ test('closing grants sixty seconds and then charges all overhead, including nega
   const order = orderFor(state); order.patience = order.maxPatience = 500;
   g.tickDay(state, 9, constant); assert.equal(state.phase, 'closing'); assert.equal(state.activeDay.remaining, 0); assert.ok(state.activeDay.closingRemaining > 59.8);
   assert.equal(g.createOrder(state).ok, false); state.money = 0;
-  const result = g.tickDay(state, 60, constant); assert.equal(result.finished, true); assert.equal(result.summary.rent, 40000); assert.equal(result.summary.utilities, 15000); assert.equal(state.money, -55000); assert.equal(state.day, 2);
+  const result = g.tickDay(state, 60, constant); assert.equal(result.finished, true); assert.equal(result.summary.rent, 0, 'no rent before the first rented shop'); assert.equal(result.summary.utilities, 21000, 'base utilities plus the extra table'); assert.equal(state.money, -21000);
+  assert.equal(state.day, 1, 'a night below zero opens the same day again'); assert.equal(result.summary.repeat, true); assert.equal(state.insolvent, true); assert.equal(g.beginDay(state).ok, false);
   const after = JSON.stringify(state); assert.equal(g.finishDay(state).alreadyFinished, true); assert.equal(JSON.stringify(state), after);
 });
 
 test('same-day broth expires; stock waste is reported without charging its cost twice', () => {
   const state = opened(), cash = state.money, purchaseCost = state.pendingExpenses + state.activeDay.expenses;
-  const result = close(state); assert.equal(result.summary.expenses, purchaseCost + 55000); assert.equal(state.money, cash - 55000);
+  const result = close(state); assert.equal(result.summary.expenses, purchaseCost + 21000); assert.equal(state.money, cash - 21000);
   assert.equal(state.inventory.kimchi, 0); assert.equal(state.inventory.beef, 0); assert.equal(state.inventory.noodles, 20); assert.equal(state.inventory.bowls, 25); assert.equal(state.inventory.sausage, 10); assert.ok(result.summary.spoiled > 0);
   state.money += 100000; // the day-one cart leaves little cash; this part only checks FIFO lots
   assert.equal(g.buyCart(state, { noodles: 1 }).ok, true); assert.equal(g.buyCart(state, { kimchi: 1 }).ok, true); g.beginDay(state); g.startPot(state); assert.equal(state.batches.noodles[0].qty, 19, 'Older noodle lot is consumed first');
@@ -124,7 +129,7 @@ test('chef auto-collects at ideal timing; a full basket never makes an extra pot
 });
 
 test('last allocated broth is not mistaken for a stockout, and rush restocking charges 1.5x', () => {
-  const state = g.createGame(); g.buyCart(state, { bowls: 3, noodles: 3, kimchi: 1, sausage: 2 }); g.beginDay(state); const order = orderFor(state); g.takeBowl(state); g.addBroth(state, order.broth);
+  const state = seat(g.createGame()); g.buyCart(state, { bowls: 3, noodles: 3, kimchi: 1, sausage: 2 }); g.beginDay(state); const order = orderFor(state); g.takeBowl(state); g.addBroth(state, order.broth);
   const before = JSON.stringify(order); assert.equal(g.missingFor(state, order), null); assert.equal(g.openStockout(state, order.id, constant).ok, false); assert.equal(state.activeDay.pendingIncident, null); assert.equal(JSON.stringify(order), before);
   assert.equal(g.cartCost(state, { kimchi: 5 }, { rush: true }), 45000); assert.equal(g.buyCart(state, { kimchi: 5 }, { rush: true }).cost, 45000);
 });
@@ -164,7 +169,7 @@ test('v1 saves taken mid-day with a waiting first customer still migrate', () =>
 });
 
 test('topping helper only completes a bowl that still matches the selected order', () => {
-  const state = g.createGame('Tiệm phụ bếp'); state.xp = 8000; state.money = 5000000; state.unlocked = g.INGREDIENTS.map(item => item.id);
+  const state = g.createGame('Tiệm phụ bếp'); state.xp = 8000; grown(state); state.money = 5000000; state.unlocked = g.INGREDIENTS.map(item => item.id);
   assert.equal(g.buyCart(state, Object.fromEntries(state.unlocked.map(id => [id, 10]))).ok, true);
   assert.equal(g.hireStaff(state, 'topping').ok, true); assert.equal(g.beginDay(state).ok, true);
   const first = orderFor(state), second = orderFor(state);
@@ -205,7 +210,7 @@ test('random callback failure does not consume an order ID or mutate game state'
 });
 
 const sequence = numbers => { let index = 0; return () => numbers[index++] ?? .5; };
-function incidentDay() { const state = g.createGame(); state.day = 2; g.buyCart(state, g.suggestedCart(state)); g.beginDay(state); const order = orderFor(state); prepare(state, order); return state; }
+function incidentDay() { const state = seat(g.createGame()); state.day = 2; g.buyCart(state, g.suggestedCart(state)); g.beginDay(state); const order = orderFor(state); prepare(state, order); return state; }
 
 test('payment incidents pause timers, persist, and resolve financial changes once', () => {
   const state = incidentDay(); const result = g.serveBowl(state, sequence([.5, .01, .8, .2, .3]));
@@ -237,7 +242,7 @@ test('loan and repayment numeric boundaries never partially mutate the ledger', 
 });
 
 test('delivery has an independent two-order queue, singles, clock, cutoff, and application fee', () => {
-  const state = opened(); state.xp = 8000; state.upgrades.delivery = true;
+  const state = opened(); state.xp = 8000; grown(state); state.upgrades.table = false; state.upgrades.delivery = true;
   for (let i = 0; i < 3; i++) orderFor(state);
   g.tickDay(state, 22.1, constant);
   assert.equal(state.activeDay.orders.filter(order => !order.delivery).length, 3);
@@ -258,10 +263,10 @@ test('rain applies its traffic factor and halves the independent app-arrival gap
 });
 
 test('students trigger three visitor attempts and reviewer ratings count three times', () => {
-  const students = opened(); students.activeDay.event = { ...g.DAILY_EVENTS.find(event => event.id === 'students') }; students.activeDay.nextArrival = 1000;
+  const students = opened(); students.xp = 450; grown(students); students.activeDay.event = { ...g.DAILY_EVENTS.find(event => event.id === 'students') }; students.activeDay.nextArrival = 1000;
   g.tickDay(students, 95, constant); assert.equal(students.activeDay.studentsSpawned, true); assert.equal(students.activeDay.customers, 3); g.tickDay(students, 1, constant); assert.equal(students.activeDay.customers, 3); assert.deepEqual(restore(students), students);
-  const reviewer = opened(); reviewer.activeDay.event = { ...g.DAILY_EVENTS.find(event => event.id === 'reviewer') }; reviewer.activeDay.nextArrival = 1000;
-  g.tickDay(reviewer, 73.6, constant); const order = reviewer.activeDay.orders.find(order => order.reviewer); assert.ok(order); prepare(reviewer, order); g.serveBowl(reviewer, constant);
+  const reviewer = opened(); reviewer.activeDay.event = { ...g.DAILY_EVENTS.find(event => event.id === 'reviewer') }; reviewer.activeDay.nextArrival = 1000; reviewer.activeDay.nextAppArrival = 1000;
+  g.tickDay(reviewer, 74.1, constant); const order = reviewer.activeDay.orders.find(order => order.reviewer); assert.ok(order); prepare(reviewer, order); g.serveBowl(reviewer, constant);
   assert.equal(reviewer.reviews.length, 3); assert.equal(reviewer.xp, 26); assert.equal(reviewer.activeDay.perfect, 1); assert.deepEqual(restore(reviewer), reviewer);
 });
 
@@ -309,7 +314,7 @@ test('notices carry a kind and its data for the interface, and never enter the s
   g.takeBowl(state); g.addBroth(state, 'kimchi'); g.addTopping(state, 'sausage');
   assert.deepEqual(kinds().map(note => [note.kind, note.item]), [['buyerOut', 'sausage']]);
   g.tickDay(state, 12.1, constant); assert.deepEqual(kinds().map(note => [note.kind, note.item, note.ok]), [['buyerBack', 'sausage', true]]);
-  const students = opened(); students.activeDay.event = { ...g.DAILY_EVENTS.find(event => event.id === 'students') }; students.activeDay.nextArrival = 1000; g.takeNotices();
+  const students = opened(); students.xp = 450; grown(students); students.activeDay.event = { ...g.DAILY_EVENTS.find(event => event.id === 'students') }; students.activeDay.nextArrival = 1000; g.takeNotices();
   g.tickDay(students, 95, constant); assert.ok(kinds().some(note => note.kind === 'students' && note.cue === 'customerArrive'));
   const level = opened(); level.xp = 145; level.goals[0].target = 1; g.takeNotices(); const guest = orderFor(level); prepare(level, guest); g.serveBowl(level, constant);
   const notes = kinds(); assert.ok(notes.some(note => note.kind === 'goal' && note.goalId === level.goals[0].id)); assert.ok(notes.some(note => note.kind === 'levelUp' && note.level === 2));
@@ -319,7 +324,7 @@ test('notices carry a kind and its data for the interface, and never enter the s
 });
 
 test('a shop with the spaceport but no delivery app still saves while an interplanetary order waits', () => {
-  const state = g.createGame('Tiệm phi thuyền'); state.day = 12; state.xp = 30000; state.money = 9000000;
+  const state = g.createGame('Tiệm phi thuyền'); state.day = 12; state.xp = 30000; grown(state); state.money = 9000000;
   assert.equal(g.buyUpgrade(state, 'spaceport').ok, true); assert.equal(state.upgrades.delivery, false, 'the spaceport does not need the app');
   assert.equal(g.buyCart(state, { bowls: 20, noodles: 20, kimchi: 20, beef: 20, sausage: 20 }).ok, true);
   assert.equal(g.beginDay(state, () => .99).ok, true); state.activeDay.nextArrival = 999; state.activeDay.planetAt = 30;

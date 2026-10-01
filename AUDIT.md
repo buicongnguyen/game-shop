@@ -283,6 +283,24 @@ What fixed it:
   - living street 120/120.
 - **Browser, the compiled site under `/game-shop/`:** parity 26/26, interaction 26/26, layout 20/20, effects 11/11, install 7/7.
 
+## Reference logic parity — 2026-10-01 (seventh pass)
+
+**What changed.** The reference's startup chapters and the rules that hang off them, plus smaller logic differences found by reading its code (all text is our own):
+- Chapters (`state.story = { stage, seen }`, effective stage = min(stage, level band)); goals, advance at closing, a `chapter` notice (confetti) and morning card; old saves migrate to their band. Shown on the prep sign and in the day summary.
+- Seats 0/2/3 (+table 4) and rent from stage 3; the home kitchen takes app orders without the app (queue 3, gaps ×0.55); stage 2 traffic ×1.15 on rain or hot days; students from stage 2; cold-day spice floor 4–7 from stage 2; level titles in the chapter bands.
+- Arrivals: first walk-in at 1 s, first app order at 10 s; the reviewer is the next ordinary arrival; sold-out swaps by fresh-pick weights; a sold-out walk-away counts as lost only (`soldOutWalks` keeps the visitor check exact).
+- Pots on the backup burner take 1.6× as long; a quick haggle only pays the discount (`haggleQuick` notice); the cheap and secret stars go on before the clamp; the cheap ratio is the mean of the bowls.
+- Insolvency: a night below zero repeats the day number (no event or windfall rolls) until a loan or a new shop; the minimum restock is the opening reserve at today's prices. Windfalls from the night after day 2 in fixed amounts.
+- Reviews kept 400, history 120; the summary's average counts every review written that run of the day (`summary.stars`); forecast and suggested cart follow the reference's formulas.
+- Every new field is validated on load with defaults: `story`, `activeDay.reviewerPending / appOrders / soldOutWalks / firstOrderId`, summary `appOrders / stars / repeat`, the `chapter` morning note.
+
+**Tests.** `tests/chapters.test.js` (15 focused tests, one or more per item). Fixtures that relied on three seats at level 1 now take the extra table (or play the chapter their raised level allows); assertions that legitimately changed: no rent before chapter 3, a negative night keeps the day number, backup-burner speed 1/1.6, a sold-out walk-away is not a customer, the reviewer is subject to prices, students need chapter 2.
+
+**Evidence.**
+- `npm test`: 277/277.
+- `node tests/simulation.mjs`: 100 days, all invariants; chapters reached on days 3, 5, 8 and 11; no repeated days.
+- Browser (`SUITES=parity-browser.mjs,mobile-interaction.mjs,mobile-layout.mjs,fx-browser.mjs,pwa-browser.mjs node tools/run-browser.mjs`): parity 35/35, interaction 27/27, layout 25/25, effects 11/11, install 8/8.
+
 ## Verification limits
 
 Automated local checks do not establish exact visual parity, original server behavior, balanced long-term economics under every player strategy, or exhaustive mobile/accessibility coverage. The remaining product differences are explicitly listed in [docs/PARITY.md](docs/PARITY.md). JSON saves remain player-controlled data; validation prevents malformed state from entering normal play, and does not function as an anti-cheat service.

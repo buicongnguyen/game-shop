@@ -128,7 +128,7 @@ test('optional state migration is tolerant of absent fields and rejects malforme
 });
 
 test('engine save roundtrip retains market, secret recipe, and recovered bowl batches', () => {
-  const game = G.createGame(); game.day = 2;
+  const game = G.createGame(); game.day = 2; game.upgrades.table = true;
   assert.equal(G.buyCart(game, { bowls: 10, noodles: 10, kimchi: 10, beef: 10, sausage: 10 }).ok, true);
   assert.equal(G.beginDay(game).ok, true);
   for (let customer = 0; customer < 3; customer++) {
